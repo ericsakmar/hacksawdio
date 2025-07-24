@@ -1,4 +1,7 @@
+use serde_json::json;
+use tauri::Manager;
 use tauri::State;
+use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -21,6 +24,7 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 async fn authenticate_user_by_name_cmd(
+    app_handle: tauri::AppHandle,
     username: String,
     password: String,
     state: State<'_, AppState>,
@@ -35,6 +39,10 @@ async fn authenticate_user_by_name_cmd(
             let mut server_id_guard = state.server_id.lock().await;
             *server_id_guard = Some(response.server_id.clone());
 
+            if let Ok(store) = app_handle.store("store.json") {
+                store.set("access_token".to_string(), json!(&response.access_token));
+            }
+
             Ok(response)
         }
         Err(e) => Err(e.to_string()),
@@ -47,17 +55,28 @@ pub fn run() {
 
     let initial_client = JellyfinClient::new(
         "http://192.168.1.153:8097".to_string(),
-        "TauriJellyfinApp".to_string(),
-        "My Tauri Desktop Client".to_string(),
+        "Hacksawdio".to_string(),
+        "Hacksawdio Desktop Client".to_string(),
         device_id,
-        "1.0.0".to_string(),
+        "0.0.1".to_string(),
     );
 
     tauri::Builder::default()
-        .manage(AppState {
-            jellyfin_client: initial_client,
-            auth_token: Mutex::new(None), // No token on startup
-            server_id: Mutex::new(None),  // No server ID on startup
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(|app| {
+            let store = app.store("store.json")?;
+
+            let auth_token = store
+                .get("access_token")
+                .and_then(|v| v.as_str().map(String::from));
+
+            app.manage(AppState {
+                jellyfin_client: initial_client,
+                auth_token: Mutex::new(auth_token),
+                server_id: Mutex::new(None),
+            });
+
+            Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
