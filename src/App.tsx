@@ -1,58 +1,28 @@
-import { useEffect, useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router";
+import { SessionResponse } from "./features/auth/types";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
   const navigate = useNavigate();
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
-  // TEMP
-  const loggedIn = false;
-  useEffect(() => {
-    if (!loggedIn) {
+  const checkAuth = async () => {
+    const session = await invoke<SessionResponse>("get_session");
+    if (session.authenticated) {
+      // TODO
+      // navigate("/dashboard");
+    } else {
       navigate("/login");
     }
-  }, [loggedIn]);
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   return (
     <main className="container">
-      <h1 className="text-xl text-red-500">Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <h1 className="text-xl">HACKSAWDIO</h1>
     </main>
   );
 }

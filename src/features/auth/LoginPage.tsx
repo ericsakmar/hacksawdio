@@ -1,19 +1,26 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router";
 
 function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login attempt:", { username, password });
 
-    const res = await invoke("authenticate_user_by_name_cmd", {
-      username,
-      password,
-    });
-    console.log("Login response:", res);
+    try {
+      await invoke("authenticate_user_by_name_cmd", {
+        username,
+        password,
+      });
+      // navigate("/dashboard");
+    } catch (error) {
+      console.error("Login failed:", error);
+      // Handle login failure (e.g., show an error message)
+      return;
+    }
   };
 
   return (

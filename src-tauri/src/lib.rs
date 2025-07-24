@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::jellyfin::client::JellyfinClient;
-use crate::jellyfin::models::AuthResponse;
+use crate::jellyfin::models::{AuthResponse, SessionResponse};
 
 mod jellyfin;
 
@@ -16,10 +16,18 @@ pub struct AppState {
     server_id: Mutex<Option<String>>,
 }
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn get_session(app_handle: tauri::AppHandle) -> Result<SessionResponse, String> {
+    let store = app_handle
+        .store("store.json")
+        .map_err(|e| format!("Failed to access store: {}", e))?;
+
+    let authenticated = store
+        .get("access_token")
+        .and_then(|v| v.as_str().map(String::from))
+        .map_or(false, |token| !token.is_empty());
+
+    Ok(SessionResponse { authenticated })
 }
 
 #[tauri::command]
@@ -80,8 +88,8 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
-            authenticate_user_by_name_cmd
+            authenticate_user_by_name_cmd,
+            get_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
