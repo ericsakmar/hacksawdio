@@ -46,7 +46,7 @@ pub fn run() {
     let device_id = Uuid::new_v4().to_string();
 
     let initial_client = JellyfinClient::new(
-        "http://localhost:8096".to_string(),
+        "http://192.168.1.153:8097".to_string(),
         "TauriJellyfinApp".to_string(),
         "My Tauri Desktop Client".to_string(),
         device_id,

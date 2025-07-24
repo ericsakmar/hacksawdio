@@ -8,6 +8,12 @@ function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Login attempt:", { username, password });
+
+    const res = await invoke("authenticate_user_by_name_cmd", {
+      username,
+      password,
+    });
+    console.log("Login response:", res);
   };
 
   return (
