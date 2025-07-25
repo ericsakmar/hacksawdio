@@ -41,3 +41,18 @@ pub struct JellyfinItem {
     pub id: String,
     pub album_artist: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlbumSearchResponse {
+    pub total_record_count: u32,
+    pub start_index: u32,
+    pub items: Vec<AlbumSearchResponseItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlbumSearchResponseItem {
+    pub name: String,
+    pub id: String,
+    pub album_artist: Option<String>,
+    pub downloaded: bool,
+}

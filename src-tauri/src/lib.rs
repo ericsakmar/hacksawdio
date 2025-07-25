@@ -6,10 +6,10 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::jellyfin::client::JellyfinClient;
-use crate::jellyfin::models::{AuthResponse, JellyfinItemsResponse, SessionResponse};
+use crate::jellyfin::models::{AlbumSearchResponse, AuthResponse, SessionResponse};
 
 pub mod db;
-use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
@@ -86,7 +86,7 @@ async fn authenticate_user_by_name_cmd(
 async fn search_albums(
     search: String,
     state: State<'_, AppState>,
-) -> Result<JellyfinItemsResponse, String> {
+) -> Result<AlbumSearchResponse, String> {
     let client = &state.jellyfin_client;
 
     let access_token = get_access_token(&state).await?;

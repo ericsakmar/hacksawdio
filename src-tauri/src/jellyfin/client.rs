@@ -1,5 +1,7 @@
 use super::errors::JellyfinError;
-use super::models::{AuthRequest, AuthResponse, JellyfinItemsResponse};
+use super::models::{
+    AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItemsResponse,
+};
 use reqwest::Client;
 
 pub struct JellyfinClient {
@@ -76,7 +78,7 @@ impl JellyfinClient {
         &self,
         search: &str,
         access_token: &str,
-    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+    ) -> Result<AlbumSearchResponse, JellyfinError> {
         let url = format!(
             "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit=100",
             self.base_url, search
@@ -96,7 +98,10 @@ impl JellyfinClient {
             .await?;
 
         if response.status().is_success() {
-            Ok(response.json::<JellyfinItemsResponse>().await?)
+            // TODO map one into the other?
+            let items = response.json::<JellyfinItemsResponse>().await?;
+            let with_downloaded_state = self.add_downloaded_state(&items).await;
+            Ok(with_downloaded_state)
         } else {
             let status = response.status();
 
@@ -109,6 +114,28 @@ impl JellyfinClient {
                 status,
                 message: error_text,
             })
+        }
+    }
+
+    async fn add_downloaded_state(&self, res: &JellyfinItemsResponse) -> AlbumSearchResponse {
+        let items = res
+            .items
+            .clone()
+            .into_iter()
+            .map(|item| {
+                AlbumSearchResponseItem {
+                    name: item.name,
+                    id: item.id,
+                    album_artist: item.album_artist,
+                    downloaded: false, // Default to false, will be updated later
+                }
+            })
+            .collect::<Vec<_>>();
+
+        AlbumSearchResponse {
+            total_record_count: res.total_record_count,
+            start_index: res.start_index,
+            items,
         }
     }
 }

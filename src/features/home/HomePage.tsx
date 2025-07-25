@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { JellyfinItemsResponse } from "../auth/types";
+import { AlbumSearchResponse } from "../auth/types";
 
 function HomePage() {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<JellyfinItemsResponse | null>(null);
+  const [results, setResults] = useState<AlbumSearchResponse | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const res = await invoke<JellyfinItemsResponse>("search_albums", {
+    const res = await invoke<AlbumSearchResponse>("search_albums", {
       search,
     });
 
@@ -40,6 +40,7 @@ function HomePage() {
             {results.items.map((item) => (
               <li key={item.id}>
                 {item.name} {item.albumArtist ? `by ${item.albumArtist}` : ""}
+                <button disabled={item.downloaded}>download</button>
               </li>
             ))}
           </ul>

@@ -2,14 +2,15 @@ export interface SessionResponse {
   authenticated: boolean;
 }
 
-export interface JellyfinItemsResponse {
-  items: JellyfinItem[];
+export interface AlbumSearchResponse {
+  items: AlbumSearchResponseItem[];
   totalRecordCount: number;
   startIndex: number;
 }
 
-export interface JellyfinItem {
+export interface AlbumSearchResponseItem {
   id: string;
   name: string;
   albumArtist?: string;
+  downloaded: boolean;
 }
