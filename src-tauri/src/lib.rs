@@ -8,12 +8,18 @@ use uuid::Uuid;
 use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::models::{AuthResponse, JellyfinItemsResponse, SessionResponse};
 
+pub mod db;
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
 mod jellyfin;
 
 pub struct AppState {
     jellyfin_client: JellyfinClient,
     auth_token: Mutex<Option<String>>,
     server_id: Mutex<Option<String>>,
+    db_pool: db::Pool,
 }
 
 async fn set_access_token(
@@ -112,10 +118,13 @@ pub fn run() {
                 .get("access_token")
                 .and_then(|v| v.as_str().map(String::from));
 
+            let db_pool = db::establish_connection();
+
             app.manage(AppState {
                 jellyfin_client: initial_client,
                 auth_token: Mutex::new(auth_token),
                 server_id: Mutex::new(None),
+                db_pool,
             });
 
             Ok(())
