@@ -16,6 +16,32 @@ pub struct AppState {
     server_id: Mutex<Option<String>>,
 }
 
+async fn set_access_token(
+    app_handle: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+    access_token: &str,
+) {
+    let mut token_guard = state.auth_token.lock().await;
+    *token_guard = Some(access_token.to_string());
+
+    if let Ok(store) = app_handle.store("store.json") {
+        store.set("access_token", json!(access_token));
+    }
+}
+
+async fn get_access_token(state: &State<'_, AppState>) -> Result<String, String> {
+    let token_guard = state.auth_token.lock().await;
+
+    token_guard
+        .clone()
+        .ok_or_else(|| "Unauthorized".to_string())
+}
+
+async fn set_server_id(state: &State<'_, AppState>, server_id: &str) {
+    let mut server_id_guard = state.server_id.lock().await;
+    *server_id_guard = Some(server_id.to_string());
+}
+
 #[tauri::command]
 fn get_session(app_handle: tauri::AppHandle) -> Result<SessionResponse, String> {
     let store = app_handle
@@ -39,22 +65,15 @@ async fn authenticate_user_by_name_cmd(
 ) -> Result<AuthResponse, String> {
     let client = &state.jellyfin_client;
 
-    match client.authenticate_user_by_name(&username, &password).await {
-        Ok(response) => {
-            let mut token_guard = state.auth_token.lock().await;
-            *token_guard = Some(response.access_token.clone());
+    let response = client
+        .authenticate_user_by_name(&username, &password)
+        .await
+        .map_err(|e| e.to_string())?;
 
-            let mut server_id_guard = state.server_id.lock().await;
-            *server_id_guard = Some(response.server_id.clone());
+    set_access_token(&app_handle, &state, &response.access_token).await;
+    set_server_id(&state, &response.server_id).await;
 
-            if let Ok(store) = app_handle.store("store.json") {
-                store.set("access_token".to_string(), json!(&response.access_token));
-            }
-
-            Ok(response)
-        }
-        Err(e) => Err(e.to_string()),
-    }
+    Ok(response)
 }
 
 #[tauri::command]
@@ -64,18 +83,12 @@ async fn search_albums(
 ) -> Result<JellyfinItemsResponse, String> {
     let client = &state.jellyfin_client;
 
-    // Lock the mutex to get access to the Option<String>
-    let auth_token_guard = state.auth_token.lock().await;
+    let access_token = get_access_token(&state).await?;
 
-    // Get a reference to the String inside the Option
-    let auth_token_ref = auth_token_guard
-        .as_ref()
-        .ok_or_else(|| "Auth token not set".to_string())?;
-
-    match client.search_albums(&search, auth_token_ref).await {
-        Ok(response) => Ok(response),
-        Err(e) => Err(e.to_string()),
-    }
+    client
+        .search_albums(&search, &access_token)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

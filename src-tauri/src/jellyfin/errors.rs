@@ -11,6 +11,6 @@ pub enum JellyfinError {
         status: reqwest::StatusCode,
         message: String,
     },
-    #[error("Generic error: {0}")]
-    Generic(String),
+    // #[error("Generic error: {0}")]
+    // Generic(String),
 }
