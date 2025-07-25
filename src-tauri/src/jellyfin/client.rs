@@ -1,5 +1,5 @@
 use super::errors::JellyfinError;
-use super::models::{AuthRequest, AuthResponse};
+use super::models::{AuthRequest, AuthResponse, JellyfinItemsResponse};
 use reqwest::Client;
 
 pub struct JellyfinClient {
@@ -57,6 +57,46 @@ impl JellyfinClient {
 
         if response.status().is_success() {
             Ok(response.json::<AuthResponse>().await?)
+        } else {
+            let status = response.status();
+
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "No error message".to_string());
+
+            Err(JellyfinError::ApiError {
+                status,
+                message: error_text,
+            })
+        }
+    }
+
+    pub async fn search_albums(
+        &self,
+        search: &str,
+        access_token: &str,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        let url = format!(
+            "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit=100",
+            self.base_url, search
+        );
+
+        let response = self
+            .http_client
+            .get(&url)
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            Ok(response.json::<JellyfinItemsResponse>().await?)
         } else {
             let status = response.status();
 

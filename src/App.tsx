@@ -9,8 +9,7 @@ function App() {
   const checkAuth = async () => {
     const session = await invoke<SessionResponse>("get_session");
     if (session.authenticated) {
-      // TODO
-      // navigate("/dashboard");
+      navigate("/home");
     } else {
       navigate("/login");
     }

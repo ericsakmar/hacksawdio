@@ -25,3 +25,19 @@ pub struct UserDetails {
 pub struct SessionResponse {
     pub authenticated: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "PascalCase"))]
+pub struct JellyfinItemsResponse {
+    pub total_record_count: u32,
+    pub start_index: u32,
+    pub items: Vec<JellyfinItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "PascalCase"))]
+pub struct JellyfinItem {
+    pub name: String,
+    pub id: String,
+    pub album_artist: Option<String>,
+}

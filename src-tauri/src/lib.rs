@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::jellyfin::client::JellyfinClient;
-use crate::jellyfin::models::{AuthResponse, SessionResponse};
+use crate::jellyfin::models::{AuthResponse, JellyfinItemsResponse, SessionResponse};
 
 mod jellyfin;
 
@@ -57,6 +57,27 @@ async fn authenticate_user_by_name_cmd(
     }
 }
 
+#[tauri::command]
+async fn search_albums(
+    search: String,
+    state: State<'_, AppState>,
+) -> Result<JellyfinItemsResponse, String> {
+    let client = &state.jellyfin_client;
+
+    // Lock the mutex to get access to the Option<String>
+    let auth_token_guard = state.auth_token.lock().await;
+
+    // Get a reference to the String inside the Option
+    let auth_token_ref = auth_token_guard
+        .as_ref()
+        .ok_or_else(|| "Auth token not set".to_string())?;
+
+    match client.search_albums(&search, auth_token_ref).await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let device_id = Uuid::new_v4().to_string();
@@ -89,7 +110,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             authenticate_user_by_name_cmd,
-            get_session
+            get_session,
+            search_albums
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
