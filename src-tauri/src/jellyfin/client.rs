@@ -2,6 +2,8 @@ use super::errors::JellyfinError;
 use super::models::{
     AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItemsResponse,
 };
+use crate::schema::albums::dsl::*;
+use diesel::prelude::*;
 use reqwest::Client;
 
 pub struct JellyfinClient {
@@ -115,6 +117,30 @@ impl JellyfinClient {
                 message: error_text,
             })
         }
+    }
+
+    pub async fn download_album(
+        &self,
+        album_id: &str,
+        access_token: &str,
+        db_pool: &crate::db::Pool,
+    ) -> Result<(), JellyfinError> {
+        let mut conn = db_pool.get().map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        diesel::insert_into(albums)
+            .values((
+                jellyfin_id.eq(album_id),
+                title.eq("fetch from jellyfin"),
+                artist.eq("fetch from jellyfin"),
+                downloaded.eq(true),
+            ))
+            .on_conflict(jellyfin_id)
+            .do_update()
+            .set(downloaded.eq(true))
+            .execute(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
+        Ok(())
     }
 
     async fn add_downloaded_state(&self, res: &JellyfinItemsResponse) -> AlbumSearchResponse {

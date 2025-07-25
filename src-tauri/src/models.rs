@@ -1,11 +1,11 @@
-use crate::schema::albums;
-use serde::{Deserialize, Serialize};
+use diesel::prelude::*;
 
-#[derive(Queryable, Serialize, Deserialize, Insertable)]
-#[diesel(table_name = albums)]
+#[derive(Queryable, Selectable, Debug, PartialEq)]
+#[diesel(table_name = crate::schema::albums)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Album {
     pub id: i32,
-    pub external_id: String,
+    pub jellyfin_id: String,
     pub name: String,
     pub artist: String,
     pub downloaded: bool,
@@ -13,8 +13,9 @@ pub struct Album {
 
 #[derive(Insertable)]
 #[diesel(table_name = albums)]
-pub struct NewAlbum<'a> {
-    pub external_id: &'a str,
-    pub name: &'a str,
-    pub artist: &'a str,
+pub struct NewAlbum {
+    pub jellyfin_id: String,
+    pub name: String,
+    pub artist: String,
+    pub downloaded: bool,
 }

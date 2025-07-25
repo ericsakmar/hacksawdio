@@ -10,5 +10,7 @@ pub fn establish_connection() -> Pool {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::<SqliteConnection>::new(database_url);
-    r2d2::Pool::builder().build(manager).expect("Pool must be created")
+    r2d2::Pool::builder()
+        .build(manager)
+        .expect("Pool must be created")
 }

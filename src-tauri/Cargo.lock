@@ -1519,6 +1519,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "dotenvy",
+ "r2d2",
  "reqwest",
  "serde",
  "serde_json",
