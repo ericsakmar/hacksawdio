@@ -20,7 +20,6 @@ pub struct AppState {
     jellyfin_client: JellyfinClient,
     auth_token: Mutex<Option<String>>,
     server_id: Mutex<Option<String>>,
-    db_pool: db::Pool,
 }
 
 async fn set_access_token(
@@ -105,7 +104,7 @@ async fn download_album(album_id: String, state: State<'_, AppState>) -> Result<
     let access_token = get_access_token(&state).await?;
 
     client
-        .download_album(&album_id, &access_token, &state.db_pool)
+        .download_album(&album_id, &access_token)
         .await
         .map_err(|e| e.to_string())
 }
@@ -113,14 +112,6 @@ async fn download_album(album_id: String, state: State<'_, AppState>) -> Result<
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let device_id = Uuid::new_v4().to_string();
-
-    let initial_client = JellyfinClient::new(
-        "http://192.168.1.153:8097".to_string(),
-        "Hacksawdio".to_string(),
-        "Hacksawdio Desktop Client".to_string(),
-        device_id,
-        "0.0.1".to_string(),
-    );
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -133,11 +124,19 @@ pub fn run() {
 
             let db_pool = db::establish_connection();
 
+            let initial_client = JellyfinClient::new(
+                "http://192.168.1.153:8097".to_string(),
+                "Hacksawdio".to_string(),
+                "Hacksawdio Desktop Client".to_string(),
+                device_id,
+                "0.0.1".to_string(),
+                db_pool,
+            );
+
             app.manage(AppState {
                 jellyfin_client: initial_client,
                 auth_token: Mutex::new(auth_token),
                 server_id: Mutex::new(None),
-                db_pool,
             });
 
             Ok(())

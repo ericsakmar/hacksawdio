@@ -19,7 +19,6 @@ function HomePage() {
   };
 
   const handleDownload = async (id: string) => {
-    console.log("CLICKED IT");
     await invoke("download_album", { albumId: id });
 
     // // Optionally, you can update the state to reflect the download status
@@ -56,13 +55,17 @@ function HomePage() {
             {results.items.map((item) => (
               <li key={item.id}>
                 {item.name} {item.albumArtist ? `by ${item.albumArtist}` : ""}
-                <button
-                  disabled={item.downloaded}
-                  className="bg-gray-200"
-                  onClick={() => handleDownload(item.id)}
-                >
-                  download
-                </button>
+                {item.downloaded ? (
+                  <span className="text-green-500"> (Downloaded)</span>
+                ) : (
+                  <button
+                    disabled={item.downloaded}
+                    className="bg-gray-200 disabled:opacity-30"
+                    onClick={() => handleDownload(item.id)}
+                  >
+                    download
+                  </button>
+                )}
               </li>
             ))}
           </ul>

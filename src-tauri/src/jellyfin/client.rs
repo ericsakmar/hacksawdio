@@ -13,6 +13,7 @@ pub struct JellyfinClient {
     device_name: String,
     device_id: String,
     app_version: String,
+    db_pool: crate::db::Pool,
 }
 
 impl JellyfinClient {
@@ -22,6 +23,7 @@ impl JellyfinClient {
         device_name: String,
         device_id: String,
         app_version: String,
+        db_pool: crate::db::Pool,
     ) -> Self {
         Self {
             base_url,
@@ -30,6 +32,7 @@ impl JellyfinClient {
             device_name,
             device_id,
             app_version,
+            db_pool,
         }
     }
 
@@ -102,7 +105,7 @@ impl JellyfinClient {
         if response.status().is_success() {
             // TODO map one into the other?
             let items = response.json::<JellyfinItemsResponse>().await?;
-            let with_downloaded_state = self.add_downloaded_state(&items).await;
+            let with_downloaded_state = self.add_downloaded_state(&items).await?;
             Ok(with_downloaded_state)
         } else {
             let status = response.status();
@@ -123,9 +126,11 @@ impl JellyfinClient {
         &self,
         album_id: &str,
         access_token: &str,
-        db_pool: &crate::db::Pool,
     ) -> Result<(), JellyfinError> {
-        let mut conn = db_pool.get().map_err(|e| JellyfinError::DbPoolError(e))?;
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
 
         diesel::insert_into(albums)
             .values((
@@ -143,25 +148,43 @@ impl JellyfinClient {
         Ok(())
     }
 
-    async fn add_downloaded_state(&self, res: &JellyfinItemsResponse) -> AlbumSearchResponse {
+    async fn add_downloaded_state(
+        &self,
+        res: &JellyfinItemsResponse,
+    ) -> Result<AlbumSearchResponse, JellyfinError> {
+        let album_ids = res
+            .items
+            .iter()
+            .map(|item| item.id.clone())
+            .collect::<Vec<_>>();
+
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        let downloaded_albums: Vec<String> = albums
+            .filter(jellyfin_id.eq_any(album_ids).and(downloaded.eq(true)))
+            .select(jellyfin_id)
+            .load(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
         let items = res
             .items
             .clone()
             .into_iter()
-            .map(|item| {
-                AlbumSearchResponseItem {
-                    name: item.name,
-                    id: item.id,
-                    album_artist: item.album_artist,
-                    downloaded: false, // Default to false, will be updated later
-                }
+            .map(|item| AlbumSearchResponseItem {
+                name: item.name,
+                id: item.id.clone(),
+                album_artist: item.album_artist,
+                downloaded: downloaded_albums.contains(&item.id),
             })
             .collect::<Vec<_>>();
 
-        AlbumSearchResponse {
+        Ok(AlbumSearchResponse {
             total_record_count: res.total_record_count,
             start_index: res.start_index,
             items,
-        }
+        })
     }
 }
