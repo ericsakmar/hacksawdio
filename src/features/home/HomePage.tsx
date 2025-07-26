@@ -18,6 +18,22 @@ function HomePage() {
     setResults(res);
   };
 
+  const handleDownload = async (id: string) => {
+    console.log("CLICKED IT");
+    await invoke("download_album", { albumId: id });
+
+    // // Optionally, you can update the state to reflect the download status
+    // setResults((prevResults) => {
+    //   if (!prevResults) return null;
+    //   return {
+    //     ...prevResults,
+    //     items: prevResults.items.map((item) =>
+    //       item.id === itemId ? { ...item, downloaded: true } : item
+    //     ),
+    //   };
+    // });
+  };
+
   return (
     <main className="container">
       <h1 className="text-xl">hacksawdio - search</h1>
@@ -40,7 +56,13 @@ function HomePage() {
             {results.items.map((item) => (
               <li key={item.id}>
                 {item.name} {item.albumArtist ? `by ${item.albumArtist}` : ""}
-                <button disabled={item.downloaded}>download</button>
+                <button
+                  disabled={item.downloaded}
+                  className="bg-gray-200"
+                  onClick={() => handleDownload(item.id)}
+                >
+                  download
+                </button>
               </li>
             ))}
           </ul>
