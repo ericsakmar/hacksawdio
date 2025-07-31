@@ -3,6 +3,7 @@ use super::models::{
     AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItem,
     JellyfinItemsResponse,
 };
+use crate::models::Album;
 use crate::schema::albums::dsl::*;
 use diesel::prelude::*;
 use reqwest::{Client, StatusCode};
@@ -100,18 +101,41 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        let album_info = self.get_jellyfin_item(album_id, access_token).await?;
-        println!("Album info: {:?}", album_info);
+        // Check if the album already exists in the database
+        let local_album = albums
+            .filter(jellyfin_id.eq(album_id))
+            .select(Album::as_select())
+            .first(&mut conn)
+            .optional()
+            .map_err(|e| JellyfinError::DbError(e))?;
 
-        diesel::insert_into(albums)
-            .values((
-                jellyfin_id.eq(album_id),
-                title.eq(album_info.name),
-                artist.eq(album_info.album_artist),
-                downloaded.eq(true),
-            ))
-            .on_conflict(jellyfin_id)
-            .do_update()
+        match local_album {
+            Some(album) => {
+                // album exists
+                if album.downloaded {
+                    // TODO consider actually checking the files
+                    return Ok(());
+                }
+            }
+            None => {
+                // album does not exist, we will insert it
+                let album_info = self.get_jellyfin_item(album_id, access_token).await?;
+
+                diesel::insert_into(albums)
+                    .values((
+                        jellyfin_id.eq(album_id),
+                        title.eq(album_info.name),
+                        artist.eq(album_info.album_artist),
+                        downloaded.eq(false),
+                    ))
+                    .execute(&mut conn)
+                    .map_err(|e| JellyfinError::DbError(e))?;
+            }
+        }
+
+        // TODO actual download
+        // mark it as downloaded
+        diesel::update(albums.filter(jellyfin_id.eq(album_id)))
             .set(downloaded.eq(true))
             .execute(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;

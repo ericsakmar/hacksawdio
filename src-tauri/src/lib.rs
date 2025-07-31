@@ -14,6 +14,7 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 mod db;
 mod jellyfin;
+mod models;
 mod schema;
 
 pub struct AppState {

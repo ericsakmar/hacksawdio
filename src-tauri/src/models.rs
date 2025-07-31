@@ -6,16 +6,16 @@ use diesel::prelude::*;
 pub struct Album {
     pub id: i32,
     pub jellyfin_id: String,
-    pub name: String,
+    pub title: String,
     pub artist: String,
     pub downloaded: bool,
 }
 
-#[derive(Insertable)]
-#[diesel(table_name = albums)]
-pub struct NewAlbum {
-    pub jellyfin_id: String,
-    pub name: String,
-    pub artist: String,
-    pub downloaded: bool,
-}
+// #[derive(Insertable)]
+// #[diesel(table_name = crate::schema::albums)]
+// pub struct NewAlbum {
+//     pub jellyfin_id: String,
+//     pub name: String,
+//     pub artist: String,
+//     pub downloaded: bool,
+// }
