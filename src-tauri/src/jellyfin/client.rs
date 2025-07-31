@@ -1,10 +1,11 @@
 use super::errors::JellyfinError;
 use super::models::{
-    AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItemsResponse,
+    AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItem,
+    JellyfinItemsResponse,
 };
 use crate::schema::albums::dsl::*;
 use diesel::prelude::*;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 
 pub struct JellyfinClient {
     base_url: String,
@@ -84,6 +85,45 @@ impl JellyfinClient {
         search: &str,
         access_token: &str,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
+        // TODO there's got to be a way to chain these
+        let items = self.search_jellyfin(search, access_token).await?;
+        self.add_downloaded_state(&items).await
+    }
+
+    pub async fn download_album(
+        &self,
+        album_id: &str,
+        access_token: &str,
+    ) -> Result<(), JellyfinError> {
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        let album_info = self.get_jellyfin_item(album_id, access_token).await?;
+        println!("Album info: {:?}", album_info);
+
+        diesel::insert_into(albums)
+            .values((
+                jellyfin_id.eq(album_id),
+                title.eq(album_info.name),
+                artist.eq(album_info.album_artist),
+                downloaded.eq(true),
+            ))
+            .on_conflict(jellyfin_id)
+            .do_update()
+            .set(downloaded.eq(true))
+            .execute(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
+        Ok(())
+    }
+
+    async fn search_jellyfin(
+        &self,
+        search: &str,
+        access_token: &str,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let url = format!(
             "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit=100",
             self.base_url, search
@@ -103,10 +143,8 @@ impl JellyfinClient {
             .await?;
 
         if response.status().is_success() {
-            // TODO map one into the other?
             let items = response.json::<JellyfinItemsResponse>().await?;
-            let with_downloaded_state = self.add_downloaded_state(&items).await?;
-            Ok(with_downloaded_state)
+            Ok(items)
         } else {
             let status = response.status();
 
@@ -122,30 +160,51 @@ impl JellyfinClient {
         }
     }
 
-    pub async fn download_album(
+    async fn get_jellyfin_item(
         &self,
-        album_id: &str,
+        item_id: &str,
         access_token: &str,
-    ) -> Result<(), JellyfinError> {
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
+    ) -> Result<JellyfinItem, JellyfinError> {
+        let url = format!("{}/Items?ids={},recursive=true", self.base_url, item_id);
 
-        diesel::insert_into(albums)
-            .values((
-                jellyfin_id.eq(album_id),
-                title.eq("fetch from jellyfin"),
-                artist.eq("fetch from jellyfin"),
-                downloaded.eq(true),
-            ))
-            .on_conflict(jellyfin_id)
-            .do_update()
-            .set(downloaded.eq(true))
-            .execute(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        let response = self
+            .http_client
+            .get(&url)
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
 
-        Ok(())
+        if response.status().is_success() {
+            let items = response.json::<JellyfinItemsResponse>().await?;
+            let first = items.items.first().cloned();
+
+            if let Some(item) = first {
+                Ok(item)
+            } else {
+                Err(JellyfinError::ApiError {
+                    status: StatusCode::NOT_FOUND,
+                    message: "Item not found".to_string(),
+                })
+            }
+        } else {
+            let status = response.status();
+
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "No error message".to_string());
+
+            Err(JellyfinError::ApiError {
+                status,
+                message: error_text,
+            })
+        }
     }
 
     async fn add_downloaded_state(

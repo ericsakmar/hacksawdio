@@ -39,7 +39,7 @@ pub struct JellyfinItemsResponse {
 pub struct JellyfinItem {
     pub name: String,
     pub id: String,
-    pub album_artist: Option<String>,
+    pub album_artist: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +53,6 @@ pub struct AlbumSearchResponse {
 pub struct AlbumSearchResponseItem {
     pub name: String,
     pub id: String,
-    pub album_artist: Option<String>,
+    pub album_artist: String,
     pub downloaded: bool,
 }
