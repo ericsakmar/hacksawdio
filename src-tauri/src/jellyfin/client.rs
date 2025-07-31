@@ -143,6 +143,22 @@ impl JellyfinClient {
         Ok(())
     }
 
+    pub async fn delete_album(&self, album_id: &str) -> Result<(), JellyfinError> {
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        // TODO actual delete
+
+        diesel::update(albums.filter(jellyfin_id.eq(album_id)))
+            .set(downloaded.eq(false))
+            .execute(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
+        Ok(())
+    }
+
     async fn search_jellyfin(
         &self,
         search: &str,

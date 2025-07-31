@@ -8,29 +8,25 @@ function HomePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await doSearch();
+  };
 
+  const doSearch = async () => {
     const res = await invoke<AlbumSearchResponse>("search_albums", {
       search,
     });
-
-    console.log("Search results:", res);
 
     setResults(res);
   };
 
   const handleDownload = async (id: string) => {
     await invoke("download_album", { albumId: id });
+    await doSearch();
+  };
 
-    // // Optionally, you can update the state to reflect the download status
-    // setResults((prevResults) => {
-    //   if (!prevResults) return null;
-    //   return {
-    //     ...prevResults,
-    //     items: prevResults.items.map((item) =>
-    //       item.id === itemId ? { ...item, downloaded: true } : item
-    //     ),
-    //   };
-    // });
+  const handleDelete = async (id: string) => {
+    await invoke("delete_album", { albumId: id });
+    await doSearch();
   };
 
   return (
@@ -56,11 +52,15 @@ function HomePage() {
               <li key={item.id}>
                 {item.name} {item.albumArtist ? `by ${item.albumArtist}` : ""}
                 {item.downloaded ? (
-                  <span className="text-green-500"> (Downloaded)</span>
+                  <button
+                    className="bg-red-500 text-white"
+                    onClick={() => handleDelete(item.id)}
+                  >
+                    delete
+                  </button>
                 ) : (
                   <button
-                    disabled={item.downloaded}
-                    className="bg-gray-200 disabled:opacity-30"
+                    className="bg-gray-200"
                     onClick={() => handleDownload(item.id)}
                   >
                     download

@@ -110,6 +110,18 @@ async fn download_album(album_id: String, state: State<'_, AppState>) -> Result<
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn delete_album(album_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let client = &state.jellyfin_client;
+
+    let access_token = get_access_token(&state).await?;
+
+    client
+        .delete_album(&album_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let device_id = Uuid::new_v4().to_string();
@@ -147,7 +159,8 @@ pub fn run() {
             authenticate_user_by_name_cmd,
             get_session,
             search_albums,
-            download_album
+            download_album,
+            delete_album
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
