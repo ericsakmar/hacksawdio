@@ -105,7 +105,7 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        let album = self.sync_album(album_id, access_token).await?;
+        let album = self.sync_album(album_id, access_token, &mut conn).await?;
 
         if album.downloaded {
             return Ok(()); // already downloaded
@@ -132,14 +132,55 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        // TODO actual delete
+        let album = self.find_album(album_id, &mut conn)?;
 
-        diesel::update(albums.filter(jellyfin_id.eq(album_id)))
-            .set(downloaded.eq(false))
-            .execute(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        match album {
+            Some(album) => {
+                if let Some(album_path) = &album.path {
+                    let path_buf = PathBuf::from(album_path);
+                    if path_buf.exists() {
+                        fs::remove_dir_all(&path_buf).map_err(|e| {
+                            JellyfinError::GenericError(format!(
+                                "Failed to delete album dir: {}",
+                                e
+                            ))
+                        })?;
+                    }
 
-        Ok(())
+                    // remove the artis directory if it's now empty
+                    let parent_dir = path_buf.parent().ok_or_else(|| {
+                        JellyfinError::GenericError("Failed to get parent directory".to_string())
+                    })?;
+
+                    if parent_dir.exists() && parent_dir.is_dir() {
+                        let entries = fs::read_dir(parent_dir).map_err(|e| {
+                            JellyfinError::GenericError(format!("Failed to read dir: {}", e))
+                        })?;
+                        if entries.count() == 0 {
+                            fs::remove_dir(parent_dir).map_err(|e| {
+                                JellyfinError::GenericError(format!(
+                                    "Failed to delete parent dir: {}",
+                                    e
+                                ))
+                            })?;
+                        }
+                    }
+                }
+
+                diesel::update(albums.filter(jellyfin_id.eq(album_id)))
+                    .set((downloaded.eq(false), path.eq(None::<String>)))
+                    .execute(&mut conn)
+                    .map_err(|e| JellyfinError::DbError(e))?;
+
+                Ok(())
+            }
+            None => {
+                return Err(JellyfinError::ApiError {
+                    status: StatusCode::NOT_FOUND,
+                    message: "Album not found".to_string(),
+                })
+            }
+        }
     }
 
     async fn search_jellyfin(
@@ -273,19 +314,14 @@ impl JellyfinClient {
     // GET TRACKS
     // http://hacksaw-house:8097/Items?parentId=53c1a2a3a8a4b8e1a69fc391081d198f&recursive=true&sortBy=IndexNumber
 
-    async fn sync_album(&self, album_id: &str, access_token: &str) -> Result<Album, JellyfinError> {
-        // consider passing this?
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
+    async fn sync_album(
+        &self,
+        album_id: &str,
+        access_token: &str,
+        conn: &mut crate::db::Connection,
+    ) -> Result<Album, JellyfinError> {
         // Check if the album already exists in the database
-        let local_album = albums
-            .filter(jellyfin_id.eq(album_id))
-            .first(&mut conn)
-            .optional()
-            .map_err(JellyfinError::DbError)?;
+        let local_album = self.find_album(album_id, conn)?;
 
         match local_album {
             Some(album) => Ok(album),
@@ -302,14 +338,10 @@ impl JellyfinClient {
 
                 diesel::insert_into(albums)
                     .values(&new_album)
-                    .execute(&mut conn)
+                    .execute(conn)
                     .map_err(|e| JellyfinError::DbError(e))?;
 
-                let new_local_album = albums
-                    .filter(jellyfin_id.eq(album_id))
-                    .first(&mut conn)
-                    .optional()
-                    .map_err(JellyfinError::DbError)?;
+                let new_local_album = self.find_album(album_id, conn)?;
 
                 match new_local_album {
                     Some(album) => Ok(album),
@@ -320,6 +352,18 @@ impl JellyfinClient {
                 }
             }
         }
+    }
+
+    fn find_album(
+        &self,
+        album_id: &str,
+        conn: &mut crate::db::Connection,
+    ) -> Result<Option<Album>, JellyfinError> {
+        albums
+            .filter(jellyfin_id.eq(album_id))
+            .first(conn)
+            .optional()
+            .map_err(JellyfinError::DbError)
     }
 
     fn create_album_dir(

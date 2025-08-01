@@ -4,6 +4,7 @@ use dotenvy::dotenv;
 use std::env;
 
 pub type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+pub type Connection = r2d2::PooledConnection<ConnectionManager<SqliteConnection>>;
 
 pub fn establish_connection() -> Pool {
     dotenv().ok();
