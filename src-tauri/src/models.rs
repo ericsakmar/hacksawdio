@@ -9,6 +9,7 @@ pub struct Album {
     pub title: String,
     pub artist: String,
     pub downloaded: bool,
+    pub path: Option<String>,
 }
 
 #[derive(Insertable)]

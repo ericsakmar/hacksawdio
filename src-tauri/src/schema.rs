@@ -7,5 +7,6 @@ diesel::table! {
         title -> Text,
         artist -> Text,
         downloaded -> Bool,
+        path -> Nullable<Text>,
     }
 }

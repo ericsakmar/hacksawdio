@@ -116,7 +116,10 @@ impl JellyfinClient {
 
         // mark it as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
-            .set(downloaded.eq(true))
+            .set((
+                downloaded.eq(true),
+                path.eq(dir.to_string_lossy().to_string()),
+            ))
             .execute(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;
 
