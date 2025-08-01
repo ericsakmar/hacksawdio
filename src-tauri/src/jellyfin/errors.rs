@@ -19,4 +19,7 @@ pub enum JellyfinError {
 
     #[error("Database error: {0}")]
     DbError(#[from] diesel::result::Error),
+
+    #[error("Jellyfin Error: {0}")]
+    GenericError(String),
 }

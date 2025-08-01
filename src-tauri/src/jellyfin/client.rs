@@ -3,10 +3,13 @@ use super::models::{
     AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItem,
     JellyfinItemsResponse,
 };
-use crate::models::Album;
+use crate::models::{Album, NewAlbum};
 use crate::schema::albums::dsl::*;
 use diesel::prelude::*;
 use reqwest::{Client, StatusCode};
+use std::fs;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
 
 pub struct JellyfinClient {
     base_url: String,
@@ -93,6 +96,7 @@ impl JellyfinClient {
 
     pub async fn download_album(
         &self,
+        app_handle: &tauri::AppHandle,
         album_id: &str,
         access_token: &str,
     ) -> Result<(), JellyfinError> {
@@ -101,39 +105,15 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        // Check if the album already exists in the database
-        let local_album = albums
-            .filter(jellyfin_id.eq(album_id))
-            .select(Album::as_select())
-            .first(&mut conn)
-            .optional()
-            .map_err(|e| JellyfinError::DbError(e))?;
+        let album = self.sync_album(album_id, access_token).await?;
 
-        match local_album {
-            Some(album) => {
-                // album exists
-                if album.downloaded {
-                    // TODO consider actually checking the files
-                    return Ok(());
-                }
-            }
-            None => {
-                // album does not exist, we will insert it
-                let album_info = self.get_jellyfin_item(album_id, access_token).await?;
-
-                diesel::insert_into(albums)
-                    .values((
-                        jellyfin_id.eq(album_id),
-                        title.eq(album_info.name),
-                        artist.eq(album_info.album_artist),
-                        downloaded.eq(false),
-                    ))
-                    .execute(&mut conn)
-                    .map_err(|e| JellyfinError::DbError(e))?;
-            }
+        if album.downloaded {
+            return Ok(()); // already downloaded
         }
 
-        // TODO actual download
+        let dir = self.create_album_dir(app_handle, &album.artist, &album.title)?;
+        println!("Creating album directory: {:?}", dir);
+
         // mark it as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
             .set(downloaded.eq(true))
@@ -285,5 +265,80 @@ impl JellyfinClient {
             start_index: res.start_index,
             items,
         })
+    }
+
+    // GET TRACKS
+    // http://hacksaw-house:8097/Items?parentId=53c1a2a3a8a4b8e1a69fc391081d198f&recursive=true&sortBy=IndexNumber
+
+    async fn sync_album(&self, album_id: &str, access_token: &str) -> Result<Album, JellyfinError> {
+        // consider passing this?
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        // Check if the album already exists in the database
+        let local_album = albums
+            .filter(jellyfin_id.eq(album_id))
+            .first(&mut conn)
+            .optional()
+            .map_err(JellyfinError::DbError)?;
+
+        match local_album {
+            Some(album) => Ok(album),
+            None => {
+                // album does not exist, we will insert it
+                let album_info = self.get_jellyfin_item(album_id, access_token).await?;
+
+                let new_album = NewAlbum {
+                    jellyfin_id: album_id.to_string(),
+                    title: album_info.name,
+                    artist: album_info.album_artist,
+                    downloaded: false,
+                };
+
+                diesel::insert_into(albums)
+                    .values(&new_album)
+                    .execute(&mut conn)
+                    .map_err(|e| JellyfinError::DbError(e))?;
+
+                let new_local_album = albums
+                    .filter(jellyfin_id.eq(album_id))
+                    .first(&mut conn)
+                    .optional()
+                    .map_err(JellyfinError::DbError)?;
+
+                match new_local_album {
+                    Some(album) => Ok(album),
+                    None => Err(JellyfinError::ApiError {
+                        status: StatusCode::NOT_FOUND,
+                        message: "Album not found after insertion".to_string(),
+                    }),
+                }
+            }
+        }
+    }
+
+    fn create_album_dir(
+        &self,
+        app_handle: &AppHandle,
+        album_artist: &str,
+        album_name: &str,
+    ) -> Result<PathBuf, JellyfinError> {
+        let mut app_data_path = app_handle.path().app_data_dir().map_err(|e| {
+            JellyfinError::GenericError(format!("Failed to get app data dir: {}", e))
+        })?;
+
+        app_data_path.push("downloads");
+        app_data_path.push(album_artist);
+        app_data_path.push(album_name);
+
+        if !app_data_path.exists() {
+            fs::create_dir_all(&app_data_path).map_err(|e| {
+                JellyfinError::GenericError(format!("Failed to create album directory: {}", e))
+            })?;
+        }
+
+        Ok(app_data_path)
     }
 }

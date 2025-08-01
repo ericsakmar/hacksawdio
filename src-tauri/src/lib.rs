@@ -99,13 +99,17 @@ async fn search_albums(
 }
 
 #[tauri::command]
-async fn download_album(album_id: String, state: State<'_, AppState>) -> Result<(), String> {
+async fn download_album(
+    app_handle: tauri::AppHandle,
+    album_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let client = &state.jellyfin_client;
 
     let access_token = get_access_token(&state).await?;
 
     client
-        .download_album(&album_id, &access_token)
+        .download_album(&app_handle, &album_id, &access_token)
         .await
         .map_err(|e| e.to_string())
 }
@@ -113,8 +117,6 @@ async fn download_album(album_id: String, state: State<'_, AppState>) -> Result<
 #[tauri::command]
 async fn delete_album(album_id: String, state: State<'_, AppState>) -> Result<(), String> {
     let client = &state.jellyfin_client;
-
-    let access_token = get_access_token(&state).await?;
 
     client
         .delete_album(&album_id)
