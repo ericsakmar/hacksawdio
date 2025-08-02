@@ -121,9 +121,11 @@ impl JellyfinClient {
 
         // get the tracks for the album
         let tracks = self.get_tracks(album_id, access_token).await?;
+        let total_tracks = tracks.items.len();
 
         for track in tracks.items {
-            self.download_track(&track, &dir, access_token).await?;
+            self.download_track(&track, &dir, access_token, total_tracks)
+                .await?;
         }
 
         // mark it as downloaded
@@ -370,6 +372,7 @@ impl JellyfinClient {
         track: &JellyfinItem,
         album_path: &PathBuf,
         access_token: &str,
+        total_tracks: usize,
     ) -> Result<(), JellyfinError> {
         let url = format!("{}/Items/{}/Download", self.base_url, track.id);
 
@@ -395,19 +398,7 @@ impl JellyfinClient {
             });
         }
 
-        let extension = match track.container.as_ref() {
-            Some(ext) => format!(".{}", ext),
-            None => "".to_string(),
-        };
-
-        let track_number = format!("{:02}", track.index_number.unwrap_or(0));
-
-        let track_filename = format!(
-            "{} - {}{}",
-            track_number,
-            sanitize(&track.name),
-            extension
-        );
+        let track_filename = self.generate_track_name(track, total_tracks);
 
         let download_path = album_path.join(&track_filename);
 
@@ -428,8 +419,6 @@ impl JellyfinClient {
             .flush()
             .await
             .map_err(|e| JellyfinError::GenericError(format!("Failed to flush file: {}", e)))?;
-
-        println!("Successfully downloaded song to: {:?}", download_path);
 
         Ok(())
     }
@@ -507,5 +496,22 @@ impl JellyfinClient {
         }
 
         Ok(app_data_path)
+    }
+
+    fn generate_track_name(&self, track: &JellyfinItem, total_tracks: usize) -> String {
+        let extension = match track.container.as_ref() {
+            Some(ext) => format!(".{}", ext),
+            None => "".to_string(),
+        };
+
+        let width = if total_tracks == 0 {
+            2
+        } else {
+            total_tracks.to_string().len()
+        };
+
+        let track_number = format!("{:0width$}", track.index_number.unwrap_or(0), width = width);
+
+        format!("{} - {}{}", track_number, sanitize(&track.name), extension)
     }
 }
