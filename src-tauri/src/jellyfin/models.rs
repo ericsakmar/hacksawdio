@@ -40,6 +40,8 @@ pub struct JellyfinItem {
     pub name: String,
     pub id: String,
     pub album_artist: String,
+    pub container: Option<String>,
+    pub index_number: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

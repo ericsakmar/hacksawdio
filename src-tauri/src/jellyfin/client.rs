@@ -6,10 +6,14 @@ use super::models::{
 use crate::models::{Album, NewAlbum};
 use crate::schema::albums::dsl::*;
 use diesel::prelude::*;
+use futures::StreamExt;
 use reqwest::{Client, StatusCode};
+use sanitize_filename::sanitize;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 pub struct JellyfinClient {
     base_url: String,
@@ -105,14 +109,22 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
+        // get the album
         let album = self.sync_album(album_id, access_token, &mut conn).await?;
 
         if album.downloaded {
-            return Ok(()); // already downloaded
+            return Ok(());
         }
 
+        // create the album directory
         let dir = self.create_album_dir(app_handle, &album.artist, &album.title)?;
-        println!("Creating album directory: {:?}", dir);
+
+        // get the tracks for the album
+        let tracks = self.get_tracks(album_id, access_token).await?;
+
+        for track in tracks.items {
+            self.download_track(&track, &dir, access_token).await?;
+        }
 
         // mark it as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
@@ -311,8 +323,116 @@ impl JellyfinClient {
         })
     }
 
-    // GET TRACKS
-    // http://hacksaw-house:8097/Items?parentId=53c1a2a3a8a4b8e1a69fc391081d198f&recursive=true&sortBy=IndexNumber
+    async fn get_tracks(
+        &self,
+        album_id: &str,
+        access_token: &str,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        // http://hacksaw-house:8097/Items?parentId=53c1a2a3a8a4b8e1a69fc391081d198f&recursive=true&sortBy=IndexNumber
+        let url = format!(
+            "{}/Items?parentId={}&recursive=true&sortBy=IndexNumber",
+            self.base_url, album_id
+        );
+
+        let response = self
+            .http_client
+            .get(&url)
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let items = response.json::<JellyfinItemsResponse>().await?;
+            Ok(items)
+        } else {
+            let status = response.status();
+
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "No error message".to_string());
+
+            Err(JellyfinError::ApiError {
+                status,
+                message: error_text,
+            })
+        }
+    }
+
+    async fn download_track(
+        &self,
+        track: &JellyfinItem,
+        album_path: &PathBuf,
+        access_token: &str,
+    ) -> Result<(), JellyfinError> {
+        let url = format!("{}/Items/{}/Download", self.base_url, track.id);
+
+        let response = self
+            .http_client
+            .get(&url)
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_else(|_| "N/A".to_string());
+            return Err(JellyfinError::ApiError {
+                status,
+                message: body,
+            });
+        }
+
+        let extension = match track.container.as_ref() {
+            Some(ext) => format!(".{}", ext),
+            None => "".to_string(),
+        };
+
+        let track_number = format!("{:02}", track.index_number.unwrap_or(0));
+
+        let track_filename = format!(
+            "{} - {}{}",
+            track_number,
+            sanitize(&track.name),
+            extension
+        );
+
+        let download_path = album_path.join(&track_filename);
+
+        let mut dest_file = File::create(&download_path)
+            .await
+            .map_err(|e| JellyfinError::GenericError(format!("Failed to create file: {}", e)))?;
+
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result?;
+            dest_file.write_all(&chunk).await.map_err(|e| {
+                JellyfinError::GenericError(format!("Failed to write chunk: {}", e))
+            })?;
+        }
+
+        dest_file
+            .flush()
+            .await
+            .map_err(|e| JellyfinError::GenericError(format!("Failed to flush file: {}", e)))?;
+
+        println!("Successfully downloaded song to: {:?}", download_path);
+
+        Ok(())
+    }
 
     async fn sync_album(
         &self,
@@ -377,8 +497,8 @@ impl JellyfinClient {
         })?;
 
         app_data_path.push("downloads");
-        app_data_path.push(album_artist);
-        app_data_path.push(album_name);
+        app_data_path.push(sanitize(album_artist));
+        app_data_path.push(sanitize(album_name));
 
         if !app_data_path.exists() {
             fs::create_dir_all(&app_data_path).map_err(|e| {
