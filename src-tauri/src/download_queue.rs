@@ -1,6 +1,5 @@
 use crate::jellyfin::client::JellyfinClient;
 use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 #[derive(Clone, serde::Serialize)]
@@ -8,6 +7,12 @@ struct DownloadQueueEmpty;
 
 #[derive(Clone, serde::Serialize)]
 struct DownloadQueueNotEmpty;
+
+#[derive(Clone, serde::Serialize)]
+struct DownloadFailed {
+    track_id: String,
+    error: String,
+}
 
 // Track details for a download
 pub struct Track {
@@ -48,6 +53,52 @@ impl DownloadQueue {
     }
 }
 
+fn handle_message(
+    message: DownloadQueueMessage,
+    app_handle: &AppHandle,
+    rt: &tokio::runtime::Runtime,
+    jellyfin_client: &Arc<JellyfinClient>,
+    auth_token: &Arc<Mutex<Option<String>>>,
+) -> bool { // returns false if shutdown
+    match message {
+        DownloadQueueMessage::NewTrack(track) => {
+            let token = {
+                let token_guard = auth_token.lock().unwrap();
+                token_guard.clone()
+            };
+
+            if let Some(token) = token {
+                rt.block_on(async {
+                    if let Err(e) = jellyfin_client
+                        .download_track(&track.track_id, &track.track_path, &token)
+                        .await
+                    {
+                        let error_message = e.to_string();
+                        eprintln!("Error downloading track {}: {}", &track.track_id, &error_message);
+                        app_handle.emit("download-failed", DownloadFailed {
+                            track_id: track.track_id,
+                            error: error_message
+                        }).unwrap();
+                    }
+                });
+            } else {
+                let error_message = "Download failed: No auth token available.".to_string();
+                eprintln!("{}", &error_message);
+                app_handle.emit("download-failed", DownloadFailed {
+                    track_id: track.track_id,
+                    error: error_message
+                }).unwrap();
+            }
+            true
+        }
+        DownloadQueueMessage::Shutdown => {
+            println!("Download queue shutting down.");
+            false
+        }
+    }
+}
+
+
 // The processor function, to be run in a thread
 pub fn process_downloads(
     app_handle: AppHandle,
@@ -56,48 +107,28 @@ pub fn process_downloads(
     auth_token: Arc<Mutex<Option<String>>>,
 ) {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let mut is_processing = false;
 
     loop {
-        match receiver.recv_timeout(Duration::from_secs(1)) {
+        match receiver.recv() {
             Ok(message) => {
-                is_processing = true;
-                match message {
-                    DownloadQueueMessage::NewTrack(track) => {
-                        let token_guard = auth_token.lock().unwrap();
-                        if let Some(token) = token_guard.as_ref() {
-                            let token_for_async = token.clone();
-                            rt.block_on(async {
-                                if let Err(e) = jellyfin_client
-                                    .download_track(
-                                        &track.track_id,
-                                        &track.track_path,
-                                        &token_for_async,
-                                    )
-                                    .await
-                                {
-                                    eprintln!("Error downloading track: {}", e);
-                                }
-                            });
-                        } else {
-                            eprintln!("Download failed: No auth token available.");
-                        }
-                    }
-                    DownloadQueueMessage::Shutdown => {
-                        println!("Download queue shutting down.");
-                        break;
+                if !handle_message(message, &app_handle, &rt, &jellyfin_client, &auth_token) {
+                    break;
+                }
+
+                // Process all other pending messages in the queue
+                while let Ok(message) = receiver.try_recv() {
+                    if !handle_message(message, &app_handle, &rt, &jellyfin_client, &auth_token) {
+                        break; // Shutdown message received
                     }
                 }
+
+                // After processing all items, emit the empty event
+                app_handle
+                    .emit("download-queue-empty", DownloadQueueEmpty)
+                    .unwrap();
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                if is_processing {
-                    app_handle
-                        .emit("download-queue-empty", DownloadQueueEmpty)
-                        .unwrap();
-                    is_processing = false;
-                }
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
+            Err(mpsc::RecvError) => {
+                // This error occurs if the sender has been dropped.
                 println!("Download queue channel disconnected.");
                 break;
             }
