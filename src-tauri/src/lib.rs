@@ -1,11 +1,12 @@
 use serde_json::json;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use tauri::Manager;
 use tauri::State;
 use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
-use crate::download_queue::DownloadQueue;
+use crate::download_queue::{process_downloads, DownloadQueue};
 use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::models::{AlbumSearchResponse, AuthResponse, SessionResponse};
 
@@ -23,7 +24,7 @@ mod schema;
 pub struct AppState {
     jellyfin_client: Arc<JellyfinClient>,
     auth_token: Arc<Mutex<Option<String>>>,
-    server_id: Mutex<Option<String>>,
+    download_queue: DownloadQueue,
 }
 
 async fn set_access_token(
@@ -46,11 +47,6 @@ async fn get_access_token(state: &State<'_, AppState>) -> Result<String, String>
         .clone()
         .ok_or_else(|| "Unauthorized".to_string())
 }
-
-// async fn set_server_id(state: &State<'_, AppState>, server_id: &str) {
-//     let mut server_id_guard = state.server_id.lock().await;
-//     *server_id_guard = Some(server_id.to_string());
-// }
 
 #[tauri::command]
 fn get_session(app_handle: tauri::AppHandle) -> Result<SessionResponse, String> {
@@ -81,7 +77,6 @@ async fn authenticate_user_by_name_cmd(
         .map_err(|e| e.to_string())?;
 
     set_access_token(&app_handle, &state, &response.access_token).await;
-    // set_server_id(&state, &response.server_id).await;
 
     Ok(response)
 }
@@ -144,7 +139,7 @@ pub fn run() {
 
             let db_pool = db::establish_connection();
 
-            let download_queue = DownloadQueue::new();
+            let (download_queue, download_receiver) = DownloadQueue::new();
 
             let jellyfin_client = Arc::new(JellyfinClient::new(
                 "http://192.168.1.153:8097".to_string(),
@@ -156,19 +151,33 @@ pub fn run() {
                 download_queue.clone(),
             ));
 
-            download_queue.process_queue(
-                app.handle().clone(),
-                jellyfin_client.clone(),
-                auth_token.clone(),
-            );
+            let app_handle = app.handle().clone();
+            let jellyfin_client_clone = jellyfin_client.clone();
+            let auth_token_clone = auth_token.clone();
+
+            thread::spawn(move || {
+                process_downloads(
+                    app_handle,
+                    download_receiver,
+                    jellyfin_client_clone,
+                    auth_token_clone,
+                );
+            });
 
             app.manage(AppState {
                 jellyfin_client,
                 auth_token,
-                server_id: Mutex::new(None),
+                download_queue,
             });
 
             Ok(())
+        })
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::Destroyed => {
+                let state: tauri::State<AppState> = window.state();
+                state.download_queue.shutdown();
+            }
+            _ => {}
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
