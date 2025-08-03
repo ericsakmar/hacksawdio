@@ -23,6 +23,7 @@ pub struct JellyfinClient {
     device_id: String,
     app_version: String,
     db_pool: crate::db::Pool,
+    download_queue: crate::download_queue::DownloadQueue,
 }
 
 impl JellyfinClient {
@@ -33,6 +34,7 @@ impl JellyfinClient {
         device_id: String,
         app_version: String,
         db_pool: crate::db::Pool,
+        download_queue: crate::download_queue::DownloadQueue,
     ) -> Self {
         Self {
             base_url,
@@ -42,6 +44,7 @@ impl JellyfinClient {
             device_id,
             app_version,
             db_pool,
+            download_queue,
         }
     }
 
@@ -127,6 +130,23 @@ impl JellyfinClient {
             self.download_track(&track, &dir, access_token, total_tracks)
                 .await?;
         }
+
+        /*
+
+                for track in tracks.items {
+            let track_path = client
+                .generate_track_path(&app_handle, &track, total_tracks)
+                .map_err(|e| e.to_string())?;
+
+            state.download_queue.add_track(
+                Track {
+                    track_id: track.id,
+                    track_path,
+                },
+                &app_handle,
+            );
+        }
+             */
 
         // mark it as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))

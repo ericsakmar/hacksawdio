@@ -5,6 +5,7 @@ use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use crate::download_queue::DownloadQueue;
 use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::models::{AlbumSearchResponse, AuthResponse, SessionResponse};
 
@@ -13,6 +14,8 @@ use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 mod db;
+
+mod download_queue;
 mod jellyfin;
 mod models;
 mod schema;
@@ -139,6 +142,8 @@ pub fn run() {
 
             let db_pool = db::establish_connection();
 
+            let download_queue = DownloadQueue::new();
+
             let initial_client = JellyfinClient::new(
                 "http://192.168.1.153:8097".to_string(),
                 "Hacksawdio".to_string(),
@@ -146,6 +151,7 @@ pub fn run() {
                 device_id,
                 "0.0.1".to_string(),
                 db_pool,
+                download_queue,
             );
 
             app.manage(AppState {
