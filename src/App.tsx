@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router";
 import { SessionResponse } from "./features/auth/types";
+import { DownloadStatus } from "./features/downloads/DownloadStatus";
 
 function App() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ function App() {
   return (
     <main className="container">
       <h1 className="text-xl">HACKSAWDIO</h1>
+      <DownloadStatus />
     </main>
   );
 }

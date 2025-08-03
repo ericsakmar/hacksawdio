@@ -53,29 +53,40 @@ impl DownloadQueue {
         let queue_clone = self.queue.clone();
         thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
+            let (lock, cvar) = &*queue_clone;
+            let mut queue = lock.lock().unwrap();
             loop {
-                let (lock, cvar) = &*queue_clone;
-                let mut queue = lock.lock().unwrap();
-                while let Some(track) = queue.pop_front() {
+                if let Some(track) = queue.pop_front() {
+                    // Unlock the queue while we download the track
+                    drop(queue);
+
                     let token_guard = auth_token.lock().unwrap();
                     if let Some(token) = token_guard.as_ref() {
                         let token_for_async = token.clone();
                         rt.block_on(async {
                             if let Err(e) = jellyfin_client
-                                .download_track(&track.track_id, &track.track_path, &token_for_async)
+                                .download_track(
+                                    &track.track_id,
+                                    &track.track_path,
+                                    &token_for_async,
+                                )
                                 .await
                             {
                                 eprintln!("Error downloading track: {}", e);
                             }
                         });
+                    } else {
+                        eprintln!("Download failed: No auth token available.");
                     }
+
+                    // Re-lock the queue to check for more items
+                    queue = lock.lock().unwrap();
+                } else {
+                    app_handle
+                        .emit("download-queue-empty", DownloadQueueEmpty)
+                        .unwrap();
+                    queue = cvar.wait(queue).unwrap();
                 }
-
-                app_handle
-                    .emit("download-queue-empty", DownloadQueueEmpty)
-                    .unwrap();
-
-                let _queue = cvar.wait(queue).unwrap();
             }
         });
     }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AlbumSearchResponse } from "../auth/types";
+import { DownloadStatus } from "../downloads/DownloadStatus";
 
 function HomePage() {
   const [search, setSearch] = useState("");
@@ -32,6 +33,8 @@ function HomePage() {
   return (
     <main className="container">
       <h1 className="text-xl">hacksawdio - search</h1>
+      <DownloadStatus />
+
       <form onSubmit={handleSubmit}>
         <input
           type="search"
