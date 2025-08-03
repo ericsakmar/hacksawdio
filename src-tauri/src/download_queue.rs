@@ -19,6 +19,7 @@ pub struct Track {
     pub track_path: String,
 }
 
+#[derive(Clone)]
 pub struct DownloadQueue {
     queue: Arc<(Mutex<VecDeque<Track>>, Condvar)>,
 }
@@ -43,37 +44,39 @@ impl DownloadQueue {
         cvar.notify_one();
     }
 
-    // more like start_queue
     pub fn process_queue(
         &self,
         app_handle: AppHandle,
-        jellyfin_client: JellyfinClient,
-        auth_token: Option<String>,
+        jellyfin_client: Arc<JellyfinClient>,
+        auth_token: Arc<Mutex<Option<String>>>,
     ) {
         let queue_clone = self.queue.clone();
-        thread::spawn(move || loop {
-            let (lock, cvar) = &*queue_clone;
-            let mut queue = lock.lock().unwrap();
-            while let Some(track) = queue.pop_front() {
-                let token_guard = auth_token.lock().unwrap();
-                if let Some(token) = token_guard.as_ref() {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(async {
-                        if let Err(e) = jellyfin_client
-                            .download_track(&track.track_id, &track.track_path, &token)
-                            .await
-                        {
-                            eprintln!("Error downloading track: {}", e);
-                        }
-                    });
+        thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            loop {
+                let (lock, cvar) = &*queue_clone;
+                let mut queue = lock.lock().unwrap();
+                while let Some(track) = queue.pop_front() {
+                    let token_guard = auth_token.lock().unwrap();
+                    if let Some(token) = token_guard.as_ref() {
+                        let token_for_async = token.clone();
+                        rt.block_on(async {
+                            if let Err(e) = jellyfin_client
+                                .download_track(&track.track_id, &track.track_path, &token_for_async)
+                                .await
+                            {
+                                eprintln!("Error downloading track: {}", e);
+                            }
+                        });
+                    }
                 }
+
+                app_handle
+                    .emit("download-queue-empty", DownloadQueueEmpty)
+                    .unwrap();
+
+                let _queue = cvar.wait(queue).unwrap();
             }
-
-            app_handle
-                .emit("download-queue-empty", DownloadQueueEmpty)
-                .unwrap();
-
-            queue = cvar.wait(queue).unwrap();
         });
     }
 }

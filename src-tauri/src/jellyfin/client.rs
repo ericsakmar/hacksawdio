@@ -127,26 +127,16 @@ impl JellyfinClient {
         let total_tracks = tracks.items.len();
 
         for track in tracks.items {
-            self.download_track(&track, &dir, access_token, total_tracks)
-                .await?;
-        }
-
-        /*
-
-                for track in tracks.items {
-            let track_path = client
-                .generate_track_path(&app_handle, &track, total_tracks)
-                .map_err(|e| e.to_string())?;
-
-            state.download_queue.add_track(
-                Track {
+            let track_filename = self.generate_track_name(&track, total_tracks);
+            let download_path = dir.join(&track_filename);
+            self.download_queue.add_track(
+                crate::download_queue::Track {
                     track_id: track.id,
-                    track_path,
+                    track_path: download_path.to_string_lossy().to_string(),
                 },
-                &app_handle,
+                app_handle,
             );
         }
-             */
 
         // mark it as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
@@ -387,14 +377,13 @@ impl JellyfinClient {
         }
     }
 
-    async fn download_track(
+    pub async fn download_track(
         &self,
-        track: &JellyfinItem,
-        album_path: &PathBuf,
+        track_id: &str,
+        download_path: &str,
         access_token: &str,
-        total_tracks: usize,
     ) -> Result<(), JellyfinError> {
-        let url = format!("{}/Items/{}/Download", self.base_url, track.id);
+        let url = format!("{}/Items/{}/Download", self.base_url, track_id);
 
         let response = self
             .http_client
@@ -417,10 +406,6 @@ impl JellyfinClient {
                 message: body,
             });
         }
-
-        let track_filename = self.generate_track_name(track, total_tracks);
-
-        let download_path = album_path.join(&track_filename);
 
         let mut dest_file = File::create(&download_path)
             .await
