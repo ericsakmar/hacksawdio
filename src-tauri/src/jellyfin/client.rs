@@ -95,9 +95,13 @@ impl JellyfinClient {
         &self,
         search: &str,
         access_token: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
         // TODO there's got to be a way to chain these
-        let items = self.search_jellyfin(search, access_token).await?;
+        let items = self
+            .search_jellyfin(search, access_token, limit, offset)
+            .await?;
 
         self.add_downloaded_state(&items).await
     }
@@ -212,10 +216,15 @@ impl JellyfinClient {
         &self,
         search: &str,
         access_token: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        let limit = limit.unwrap_or(100);
+        let offset = offset.unwrap_or(0);
+
         let url = format!(
-            "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit=100",
-            self.base_url, search
+            "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit={}&startIndex={}",
+            self.base_url, search, limit, offset
         );
 
         let response = self

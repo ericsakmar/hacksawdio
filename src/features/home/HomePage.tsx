@@ -10,6 +10,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 function HomePage() {
   const [search, setSearch] = useState("");
+  const [limit] = useState(10);
+  const [offset, setOffset] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
@@ -21,8 +23,9 @@ function HomePage() {
     isFetching: isSearching,
     refetch,
   } = useQuery({
-    queryKey: ["search_albums", search],
-    queryFn: () => invoke<AlbumSearchResponse>("search_albums", { search }),
+    queryKey: ["search_albums", search, limit, offset],
+    queryFn: () =>
+      invoke<AlbumSearchResponse>("search_albums", { search, limit, offset }),
     enabled: false,
   });
 
@@ -39,6 +42,10 @@ function HomePage() {
     }
   }, [results, focusedAlbumId]);
 
+  useEffect(() => {
+    refetch();
+  }, [offset, refetch]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data } = await refetch();
@@ -49,7 +56,7 @@ function HomePage() {
 
   const setDownloaded = (id: string, downloaded: boolean) => {
     queryClient.setQueryData<AlbumSearchResponse | undefined>(
-      ["search_albums", search],
+      ["search_albums", search, limit, offset],
       (prev) => {
         if (!prev) {
           return prev;
@@ -131,6 +138,21 @@ function HomePage() {
               </li>
             ))}
           </ul>
+
+          <div className="flex justify-between mt-4">
+            <button
+              onClick={() => setOffset((prev) => Math.max(0, prev - limit))}
+              disabled={offset === 0}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setOffset((prev) => prev + limit)}
+              disabled={results.items.length < limit}
+            >
+              Next
+            </button>
+          </div>
         </div>
       ) : null}
     </main>

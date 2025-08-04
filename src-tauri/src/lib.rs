@@ -84,6 +84,8 @@ async fn authenticate_user_by_name_cmd(
 #[tauri::command]
 async fn search_albums(
     search: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<AlbumSearchResponse, String> {
     let client = &state.jellyfin_client;
@@ -91,7 +93,7 @@ async fn search_albums(
     let access_token = get_access_token(&state).await?;
 
     client
-        .search_albums(&search, &access_token)
+        .search_albums(&search, &access_token, limit, offset)
         .await
         .map_err(|e| e.to_string())
 }
