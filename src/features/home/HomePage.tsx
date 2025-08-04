@@ -6,6 +6,8 @@ import DeleteIcon from "./DeleteIcon";
 import Logo from "./Logo";
 import { useDownloadStatus } from "./useDownloadStatus";
 import { useFocusOnKeyPress } from "./useFocusOnKeyPress";
+import DownloadIcon from "./DownloadIcon";
+import CircleCheckIcon from "./CircleCheckIcon";
 
 function HomePage() {
   const [search, setSearch] = useState("");
@@ -106,17 +108,17 @@ function HomePage() {
                 <div className="grid grid-cols-[auto_1fr] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2">
                   {item.downloaded ? (
                     <button
-                      className="row-span-2 mt-1 focus:outline-none focus:text-red-300"
+                      className="row-span-2 mt-1 focus:outline-none text-green-300 cursor-pointer"
                       onClick={() => handleDelete(item.id)}
                     >
-                      <DeleteIcon />
+                      <CircleCheckIcon />
                     </button>
                   ) : (
                     <button
-                      className="row-span-2 mt-1 focus:outline-none focus:text-green-200"
+                      className="row-span-2 mt-1 focus:outline-none cursor-pointer"
                       onClick={() => handleDownload(item.id)}
                     >
-                      <ArrowDownIcon />
+                      <DownloadIcon />
                     </button>
                   )}
                   <div>{item.name}</div>
