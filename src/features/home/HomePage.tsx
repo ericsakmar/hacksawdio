@@ -2,6 +2,8 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AlbumSearchResponse } from "../auth/types";
 import { DownloadStatus } from "../downloads/DownloadStatus";
+import ArrowDownIcon from "./ArrowDownIcon";
+import DeleteIcon from "./DeleteIcon";
 
 function HomePage() {
   const [search, setSearch] = useState("");
@@ -17,6 +19,8 @@ function HomePage() {
       search,
     });
 
+    console.log("Search results:", res);
+
     setResults(res);
   };
 
@@ -31,17 +35,20 @@ function HomePage() {
   };
 
   return (
-    <main className="container">
-      <h1 className="text-xl">hacksawdio - search</h1>
-      <DownloadStatus />
+    <main className="container mx-auto p-4">
+      <h1 className="text-xl font-bold text-center">hacksawdio</h1>
 
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-zinc-900 border-zinc-600 border border-dashed p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
+      >
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for an artist or album"
           required
+          className="flex-grow"
         />
 
         <button type="submit">Search</button>
@@ -49,30 +56,33 @@ function HomePage() {
 
       {results ? (
         <div>
-          <h2 className="text-lg">Results</h2>
+          <p className="mb-4">{results.totalRecordCount} albums</p>
+
           <ul>
             {results.items.map((item) => (
               <li key={item.id}>
-                {item.name} {item.albumArtist ? `by ${item.albumArtist}` : ""}
-                {item.downloaded ? (
-                  <button
-                    className="bg-red-500 text-white"
-                    onClick={() => handleDelete(item.id)}
-                  >
-                    delete
-                  </button>
-                ) : (
-                  <button
-                    className="bg-gray-200"
-                    onClick={() => handleDownload(item.id)}
-                  >
-                    download
-                  </button>
-                )}
+                <div className="grid grid-cols-[auto_1fr] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2">
+                  {item.downloaded ? (
+                    <button
+                      className="row-span-2 mt-1 focus:outline-none focus:text-red-300"
+                      onClick={() => handleDelete(item.id)}
+                    >
+                      <DeleteIcon />
+                    </button>
+                  ) : (
+                    <button
+                      className="row-span-2 mt-1 focus:outline-none focus:text-green-200"
+                      onClick={() => handleDownload(item.id)}
+                    >
+                      <ArrowDownIcon />
+                    </button>
+                  )}
+                  <div>{item.name}</div>
+                  <div className="opacity-70">{item.albumArtist}</div>
+                </div>
               </li>
             ))}
           </ul>
-          <p>Total results: {results.totalRecordCount}</p>
         </div>
       ) : null}
     </main>

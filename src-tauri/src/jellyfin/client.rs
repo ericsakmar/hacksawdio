@@ -98,6 +98,7 @@ impl JellyfinClient {
     ) -> Result<AlbumSearchResponse, JellyfinError> {
         // TODO there's got to be a way to chain these
         let items = self.search_jellyfin(search, access_token).await?;
+
         self.add_downloaded_state(&items).await
     }
 

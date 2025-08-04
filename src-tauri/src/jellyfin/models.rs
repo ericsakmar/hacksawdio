@@ -45,6 +45,7 @@ pub struct JellyfinItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "PascalCase"))]
 pub struct AlbumSearchResponse {
     pub total_record_count: u32,
     pub start_index: u32,
@@ -52,6 +53,7 @@ pub struct AlbumSearchResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "PascalCase"))]
 pub struct AlbumSearchResponseItem {
     pub name: String,
     pub id: String,
