@@ -9,6 +9,10 @@ export function useFocusOnKeyPress(
       if (event.key === key) {
         event.preventDefault();
         ref.current?.focus();
+
+        if (ref.current instanceof HTMLInputElement) {
+          ref.current.select();
+        }
       }
 
       if (event.key === "Escape") {

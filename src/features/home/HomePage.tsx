@@ -1,22 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AlbumSearchResponse } from "../auth/types";
-import ArrowDownIcon from "./ArrowDownIcon";
-import DeleteIcon from "./DeleteIcon";
 import Logo from "./Logo";
 import { useDownloadStatus } from "./useDownloadStatus";
 import { useFocusOnKeyPress } from "./useFocusOnKeyPress";
 import DownloadIcon from "./DownloadIcon";
 import CircleCheckIcon from "./CircleCheckIcon";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 function HomePage() {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<AlbumSearchResponse | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const {
+    data: results,
+    isFetching: isSearching,
+    refetch,
+  } = useQuery({
+    queryKey: ["search_albums", search],
+    queryFn: () => invoke<AlbumSearchResponse>("search_albums", { search }),
+    enabled: false,
+  });
 
   useFocusOnKeyPress("/", searchInputRef);
 
@@ -25,6 +33,7 @@ function HomePage() {
       const liElement = resultsRef.current.querySelector(
         `li[data-album-id='${focusedAlbumId}']`
       );
+
       const buttonToFocus = liElement?.querySelector("button");
       buttonToFocus?.focus();
     }
@@ -32,33 +41,28 @@ function HomePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await doSearch();
-  };
-
-  const doSearch = async () => {
-    setIsSearching(true);
-
-    const res = await invoke<AlbumSearchResponse>("search_albums", {
-      search,
-    });
-
-    setIsSearching(false);
-    setResults(res);
-    if (res.items.length > 0) {
-      setFocusedAlbumId(res.items[0].id);
+    const { data } = await refetch();
+    if (data && data.items.length > 0) {
+      setFocusedAlbumId(data.items[0].id);
     }
   };
 
   const setDownloaded = (id: string, downloaded: boolean) => {
-    setResults((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        items: prev.items.map((item) =>
-          item.id === id ? { ...item, downloaded } : item
-        ),
-      };
-    });
+    queryClient.setQueryData<AlbumSearchResponse | undefined>(
+      ["search_albums", search],
+      (prev) => {
+        if (!prev) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          items: prev.items.map((item) =>
+            item.id === id ? { ...item, downloaded } : item
+          ),
+        };
+      }
+    );
   };
 
   const handleDownload = async (id: string) => {
@@ -134,3 +138,4 @@ function HomePage() {
 }
 
 export default HomePage;
+
