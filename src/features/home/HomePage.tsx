@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AlbumSearchResponse } from "../auth/types";
-import { DownloadStatus } from "../downloads/DownloadStatus";
 import ArrowDownIcon from "./ArrowDownIcon";
 import DeleteIcon from "./DeleteIcon";
+import Logo from "./Logo";
+import { useDownloadStatus } from "./useDownloadStatus";
+import { useFocusOnKeyPress } from "./useFocusOnKeyPress";
 
 function HomePage() {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<AlbumSearchResponse | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const isDownloading = useDownloadStatus();
+
+  useFocusOnKeyPress("/", searchInputRef);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,12 +22,13 @@ function HomePage() {
   };
 
   const doSearch = async () => {
+    setIsSearching(true);
+
     const res = await invoke<AlbumSearchResponse>("search_albums", {
       search,
     });
 
-    console.log("Search results:", res);
-
+    setIsSearching(false);
     setResults(res);
   };
 
@@ -36,11 +44,13 @@ function HomePage() {
 
   return (
     <main className="container mx-auto p-4">
-      <h1 className="text-xl font-bold text-center">hacksawdio</h1>
+      <header>
+        <Logo animated={isSearching || isDownloading} />
+      </header>
 
       <form
         onSubmit={handleSubmit}
-        className="bg-zinc-900 border-zinc-600 border border-dashed p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
+        className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
       >
         <input
           type="search"
@@ -48,10 +58,13 @@ function HomePage() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for an artist or album"
           required
-          className="flex-grow"
+          className="flex-grow focus:outline-none"
+          ref={searchInputRef}
         />
 
-        <button type="submit">Search</button>
+        <button type="submit" className="focus:outline-blue-500">
+          Search
+        </button>
       </form>
 
       {results ? (

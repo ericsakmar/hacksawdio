@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --font-accent: "VT323", monospace;
+}
+
 body {
   @apply bg-zinc-800 text-zinc-100 font-mono;
 }
