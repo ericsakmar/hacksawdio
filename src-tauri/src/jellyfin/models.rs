@@ -39,7 +39,7 @@ pub struct JellyfinItemsResponse {
 pub struct JellyfinItem {
     pub name: String,
     pub id: String,
-    pub album_artist: String,
+    pub album_artist: Option<String>,
     pub container: Option<String>,
     pub index_number: Option<u32>,
 }

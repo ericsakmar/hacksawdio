@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AlbumSearchResponse } from "../auth/types";
 import ArrowDownIcon from "./ArrowDownIcon";
@@ -12,9 +12,21 @@ function HomePage() {
   const [results, setResults] = useState<AlbumSearchResponse | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
+  const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
 
   useFocusOnKeyPress("/", searchInputRef);
+
+  useEffect(() => {
+    if (focusedAlbumId && resultsRef.current) {
+      const liElement = resultsRef.current.querySelector(
+        `li[data-album-id='${focusedAlbumId}']`
+      );
+      const buttonToFocus = liElement?.querySelector("button");
+      buttonToFocus?.focus();
+    }
+  }, [results, focusedAlbumId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,16 +42,33 @@ function HomePage() {
 
     setIsSearching(false);
     setResults(res);
+    if (res.items.length > 0) {
+      setFocusedAlbumId(res.items[0].id);
+    }
+  };
+
+  const setDownloaded = (id: string, downloaded: boolean) => {
+    setResults((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === id ? { ...item, downloaded } : item
+        ),
+      };
+    });
   };
 
   const handleDownload = async (id: string) => {
     await invoke("download_album", { albumId: id });
-    await doSearch();
+    setDownloaded(id, true);
+    setFocusedAlbumId(id);
   };
 
   const handleDelete = async (id: string) => {
     await invoke("delete_album", { albumId: id });
-    await doSearch();
+    setDownloaded(id, false);
+    setFocusedAlbumId(id);
   };
 
   return (
@@ -71,9 +100,9 @@ function HomePage() {
         <div>
           <p className="mb-4">{results.totalRecordCount} albums</p>
 
-          <ul>
+          <ul ref={resultsRef}>
             {results.items.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} data-album-id={item.id}>
                 <div className="grid grid-cols-[auto_1fr] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2">
                   {item.downloaded ? (
                     <button

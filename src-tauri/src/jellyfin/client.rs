@@ -324,7 +324,9 @@ impl JellyfinClient {
             .map(|item| AlbumSearchResponseItem {
                 name: item.name,
                 id: item.id.clone(),
-                album_artist: item.album_artist,
+                album_artist: item
+                    .album_artist
+                    .unwrap_or_else(|| "Unknown Artist".to_string()),
                 downloaded: downloaded_albums.contains(&item.id),
             })
             .collect::<Vec<_>>();
@@ -447,7 +449,9 @@ impl JellyfinClient {
                 let new_album = NewAlbum {
                     jellyfin_id: album_id.to_string(),
                     title: album_info.name,
-                    artist: album_info.album_artist,
+                    artist: album_info
+                        .album_artist
+                        .unwrap_or_else(|| "Unknown Artist".to_string()),
                     downloaded: false,
                 };
 
