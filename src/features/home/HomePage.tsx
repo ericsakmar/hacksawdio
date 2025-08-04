@@ -8,9 +8,10 @@ import DownloadIcon from "./DownloadIcon";
 import CircleCheckIcon from "./CircleCheckIcon";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+const limit = 50;
+
 function HomePage() {
   const [search, setSearch] = useState("");
-  const [limit] = useState(10);
   const [offset, setOffset] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
@@ -111,7 +112,14 @@ function HomePage() {
 
       {results ? (
         <div>
-          <p className="mb-4">{results.totalRecordCount} albums</p>
+          <p className="mb-4 ml-2 opacity-70">
+            {results.totalRecordCount < limit
+              ? `${results.totalRecordCount} albums`
+              : `${offset + 1} to ${Math.min(
+                  offset + limit,
+                  results.totalRecordCount
+                )} of ${results.totalRecordCount} albums`}
+          </p>
 
           <ul ref={resultsRef}>
             {results.items.map((item) => (
@@ -160,4 +168,3 @@ function HomePage() {
 }
 
 export default HomePage;
-

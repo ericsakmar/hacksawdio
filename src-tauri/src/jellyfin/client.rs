@@ -223,7 +223,7 @@ impl JellyfinClient {
         let offset = offset.unwrap_or(0);
 
         let url = format!(
-            "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit={}&startIndex={}",
+            "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit={}&startIndex={}&sortBy=Album,AlbumArtist",
             self.base_url, search, limit, offset
         );
 
