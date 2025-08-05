@@ -165,6 +165,18 @@ impl JellyfinClient {
         for track in tracks.items {
             let track_filename = self.generate_track_name(&track, total_tracks);
             let download_path = dir.join(&track_filename);
+
+            diesel::insert_into(crate::schema::tracks::dsl::tracks)
+                .values(crate::models::NewTrack {
+                    jellyfin_id: &track.id,
+                    name: &track.name,
+                    album_id: album.id,
+                    downloaded: false,
+                    path: Some(download_path.to_string_lossy().to_string()),
+                })
+                .execute(&mut conn)
+                .map_err(|e| JellyfinError::DbError(e))?;
+
             self.download_queue.add_track(
                 crate::download_queue::Track {
                     track_id: track.id,
@@ -174,7 +186,16 @@ impl JellyfinClient {
             );
         }
 
-        // mark it as downloaded
+        // mark tracks as downloaded
+        diesel::update(
+            crate::schema::tracks::dsl::tracks
+                .filter(crate::schema::tracks::dsl::album_id.eq(album.id)),
+        )
+        .set(crate::schema::tracks::dsl::downloaded.eq(true))
+        .execute(&mut conn)
+        .map_err(|e| JellyfinError::DbError(e))?;
+
+        // mark album as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
             .set((
                 downloaded.eq(true),
@@ -227,6 +248,16 @@ impl JellyfinClient {
                     }
                 }
 
+                // mark tracks as not downloaded
+                diesel::update(
+                    crate::schema::tracks::dsl::tracks
+                        .filter(crate::schema::tracks::dsl::album_id.eq(album.id)),
+                )
+                .set(crate::schema::tracks::dsl::downloaded.eq(false))
+                .execute(&mut conn)
+                .map_err(|e| JellyfinError::DbError(e))?;
+
+                // mark album as not downloaded
                 diesel::update(albums.filter(jellyfin_id.eq(album_id)))
                     .set((downloaded.eq(false), path.eq(None::<String>)))
                     .execute(&mut conn)
