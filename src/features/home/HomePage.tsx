@@ -6,29 +6,18 @@ import { useDownloadStatus } from "./useDownloadStatus";
 import { useFocusOnKeyPress } from "./useFocusOnKeyPress";
 import DownloadIcon from "./DownloadIcon";
 import CircleCheckIcon from "./CircleCheckIcon";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const limit = 50;
 
 function HomePage() {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [results, setResults] = useState<AlbumSearchResponse | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
+  const [isSearching, setIsSearching] = useState(false);
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  const {
-    data: results,
-    isFetching: isSearching,
-    refetch,
-  } = useQuery({
-    queryKey: ["search_albums", search, limit, offset],
-    queryFn: () =>
-      invoke<AlbumSearchResponse>("search_albums", { search, limit, offset }),
-    enabled: false,
-  });
 
   useFocusOnKeyPress("/", searchInputRef);
 
@@ -43,35 +32,45 @@ function HomePage() {
     }
   }, [results, focusedAlbumId]);
 
-  useEffect(() => {
-    console.log("Refetching albums with search: offset:", offset);
-    refetch();
-  }, [offset, refetch]);
+  const executeSearch = async (newOffset: number) => {
+    setIsSearching(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { data } = await refetch();
-    if (data && data.items.length > 0) {
-      setFocusedAlbumId(data.items[0].id);
+    const res = await invoke<AlbumSearchResponse>("search_albums", {
+      search,
+      limit,
+      offset: newOffset,
+    });
+
+    setResults(res);
+    setOffset(newOffset);
+
+    if (res.items.length > 0) {
+      setFocusedAlbumId(res.items[0].id);
+    } else {
+      setFocusedAlbumId(null);
     }
+
+    setIsSearching(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSearch(0);
   };
 
   const setDownloaded = (id: string, downloaded: boolean) => {
-    queryClient.setQueryData<AlbumSearchResponse | undefined>(
-      ["search_albums", search, limit, offset],
-      (prev) => {
-        if (!prev) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          items: prev.items.map((item) =>
-            item.id === id ? { ...item, downloaded } : item
-          ),
-        };
+    setResults((prev) => {
+      if (!prev) {
+        return prev;
       }
-    );
+
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === id ? { ...item, downloaded } : item
+        ),
+      };
+    });
   };
 
   const handleDownload = async (id: string) => {
@@ -150,13 +149,13 @@ function HomePage() {
 
           <div className="flex justify-between mt-4">
             <button
-              onClick={() => setOffset((prev) => Math.max(0, prev - limit))}
+              onClick={() => executeSearch(Math.max(0, offset - limit))}
               disabled={offset === 0}
             >
               Previous
             </button>
             <button
-              onClick={() => setOffset((prev) => prev + limit)}
+              onClick={() => executeSearch(offset + limit)}
               disabled={results.items.length < limit}
             >
               Next
