@@ -9,11 +9,13 @@ use diesel::prelude::*;
 use futures::StreamExt;
 use reqwest::{Client, StatusCode};
 use sanitize_filename::sanitize;
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use url::{ParseError, Url};
 
 pub struct JellyfinClient {
     base_url: String,
@@ -98,12 +100,41 @@ impl JellyfinClient {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
-        // TODO there's got to be a way to chain these
-        let items = self
-            .search_jellyfin(search, access_token, limit, offset)
+        // return no results if search is empty
+        // if search.is_empty() {
+        //     return Ok(AlbumSearchResponse {
+        //         total_record_count: 0,
+        //         start_index: offset.unwrap_or(0),
+        //         items: Vec::new(),
+        //     });
+        // }
+
+        let album_results = self
+            .search_jellyfin(Some(search), "MusicAlbum", access_token, None, None, None)
             .await?;
 
-        self.add_downloaded_state(&items).await
+        let artist_album_results = self.search_albums_by_artist(search, access_token).await?;
+
+        let mut combined_items =
+            self.combine_jellyfin_items(album_results.items, artist_album_results.items);
+
+        let total_record_count = combined_items.len() as u32;
+
+        combined_items.sort_by(|a, b| a.name.cmp(&b.name));
+
+        let paginated_items = combined_items
+            .into_iter()
+            .skip(offset.unwrap_or(0) as usize)
+            .take(limit.unwrap_or(100) as usize)
+            .collect::<Vec<_>>();
+
+        let response: JellyfinItemsResponse = JellyfinItemsResponse {
+            total_record_count,
+            start_index: offset.unwrap_or(0),
+            items: paginated_items,
+        };
+
+        self.add_downloaded_state(&response).await
     }
 
     pub async fn download_album(
@@ -212,24 +243,88 @@ impl JellyfinClient {
         }
     }
 
-    async fn search_jellyfin(
+    async fn search_albums_by_artist(
         &self,
         search: &str,
         access_token: &str,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        let artist_results = self
+            .search_jellyfin(Some(search), "MusicArtist", access_token, None, None, None)
+            .await?;
+
+        let artist_ids: Vec<String> = artist_results
+            .items
+            .iter()
+            .map(|item| item.id.clone())
+            .collect();
+
+        // exit early if no artist IDs are found
+        if artist_ids.is_empty() {
+            return Ok(JellyfinItemsResponse {
+                total_record_count: 0,
+                start_index: 0,
+                items: Vec::new(),
+            });
+        }
+
+        let artist_album_results = self
+            .search_jellyfin(
+                None,
+                "MusicAlbum",
+                access_token,
+                None,
+                None,
+                Some(artist_ids),
+            )
+            .await;
+
+        artist_album_results
+    }
+
+    async fn search_jellyfin(
+        &self,
+        search: Option<&str>,
+        item_types: &str,
+        access_token: &str,
         limit: Option<u32>,
         offset: Option<u32>,
+        artist_ids: Option<Vec<String>>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let limit = limit.unwrap_or(100);
         let offset = offset.unwrap_or(0);
 
-        let url = format!(
-            "{}/Items?includeItemTypes=MusicAlbum&searchTerm={}&recursive=true&limit={}&startIndex={}&sortBy=Album,AlbumArtist",
-            self.base_url, search, limit, offset
-        );
+        // let url = format!(
+        //     "{}/Items?includeItemTypes={}&searchTerm={}&recursive=true&limit={}&startIndex={}&sortBy=Album,AlbumArtist",
+        //     self.base_url, item_types, search, limit, offset
+        // );
+
+        let mut url = Url::parse(&self.base_url)
+            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
+
+        url.set_path("/Items");
+
+        url.query_pairs_mut()
+            .append_pair("includeItemTypes", item_types)
+            .append_pair("recursive", "true")
+            .append_pair("limit", &limit.to_string())
+            .append_pair("startIndex", &offset.to_string())
+            .append_pair("sortBy", "Album,AlbumArtist");
+
+        if let Some(search_term) = search {
+            url.query_pairs_mut().append_pair("searchTerm", search_term);
+        }
+
+        if let Some(artist_ids) = artist_ids {
+            let artist_ids_str = artist_ids.join(",");
+            url.query_pairs_mut()
+                .append_pair("artistIds", &artist_ids_str);
+        }
+
+        println!("Jellyfin search URL: {}", url);
 
         let response = self
             .http_client
-            .get(&url)
+            .get(&url.to_string())
             .header(
                 "Authorization",
                 format!(
@@ -532,5 +627,23 @@ impl JellyfinClient {
         let track_number = format!("{:0width$}", track.index_number.unwrap_or(0), width = width);
 
         format!("{} - {}{}", track_number, sanitize(&track.name), extension)
+    }
+
+    fn combine_jellyfin_items(
+        &self,
+        list1: Vec<JellyfinItem>,
+        list2: Vec<JellyfinItem>,
+    ) -> Vec<JellyfinItem> {
+        let mut unique_items: HashSet<JellyfinItem> = HashSet::new();
+
+        for item in list1 {
+            unique_items.insert(item);
+        }
+
+        for item in list2 {
+            unique_items.insert(item);
+        }
+
+        unique_items.into_iter().collect()
     }
 }

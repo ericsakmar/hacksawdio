@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -42,6 +43,20 @@ pub struct JellyfinItem {
     pub album_artist: Option<String>,
     pub container: Option<String>,
     pub index_number: Option<u32>,
+}
+
+impl PartialEq for JellyfinItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for JellyfinItem {}
+
+impl Hash for JellyfinItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

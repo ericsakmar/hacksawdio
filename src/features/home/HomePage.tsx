@@ -44,6 +44,7 @@ function HomePage() {
   }, [results, focusedAlbumId]);
 
   useEffect(() => {
+    console.log("Refetching albums with search: offset:", offset);
     refetch();
   }, [offset, refetch]);
 

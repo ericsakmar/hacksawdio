@@ -8,7 +8,7 @@ function DownloadIcon() {
     >
       <g
         fill="none"
-        fill-rule="evenodd"
+        fillRule="evenodd"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
