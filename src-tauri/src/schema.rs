@@ -10,3 +10,21 @@ diesel::table! {
         path -> Nullable<Text>,
     }
 }
+
+diesel::table! {
+    tracks (id) {
+        id -> Integer,
+        jellyfin_id -> Text,
+        name -> Text,
+        album_id -> Integer,
+        path -> Nullable<Text>,
+        downloaded -> Bool,
+    }
+}
+
+diesel::joinable!(tracks -> albums (album_id));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    albums,
+    tracks,
+);

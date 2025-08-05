@@ -1,0 +1,8 @@
+CREATE TABLE tracks (
+  id INTEGER PRIMARY KEY NOT NULL,
+  jellyfin_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  album_id INTEGER NOT NULL REFERENCES albums(id),
+  path TEXT,
+  downloaded BOOLEAN NOT NULL DEFAULT 0
+);

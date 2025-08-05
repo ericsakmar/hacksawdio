@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use url::{ParseError, Url};
+use url::Url;
 
 pub struct JellyfinClient {
     base_url: String,
@@ -551,9 +551,9 @@ impl JellyfinClient {
                 let album_info = self.get_jellyfin_item(album_id, access_token).await?;
 
                 let new_album = NewAlbum {
-                    jellyfin_id: album_id.to_string(),
-                    title: album_info.name,
-                    artist: album_info
+                    jellyfin_id: album_id,
+                    title: &album_info.name,
+                    artist: &album_info
                         .album_artist
                         .unwrap_or_else(|| "Unknown Artist".to_string()),
                     downloaded: false,

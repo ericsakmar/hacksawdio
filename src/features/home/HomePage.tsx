@@ -134,7 +134,7 @@ function HomePage() {
                     </button>
                   ) : (
                     <button
-                      className="row-span-2 mt-1 focus:outline-none cursor-pointer"
+                      className="row-span-2 mt-1 opacity-70 focus:outline-none cursor-pointer"
                       onClick={() => handleDownload(item.id)}
                     >
                       <DownloadIcon />
@@ -151,12 +151,14 @@ function HomePage() {
             <button
               onClick={() => executeSearch(Math.max(0, offset - limit))}
               disabled={offset === 0}
+              className="disabled:hidden"
             >
               Previous
             </button>
             <button
               onClick={() => executeSearch(offset + limit)}
               disabled={results.items.length < limit}
+              className="disabled:hidden"
             >
               Next
             </button>
