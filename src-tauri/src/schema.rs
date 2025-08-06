@@ -8,6 +8,8 @@ diesel::table! {
         artist -> Text,
         downloaded -> Bool,
         path -> Nullable<Text>,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
     }
 }
 

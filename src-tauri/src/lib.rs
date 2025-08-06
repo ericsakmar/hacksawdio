@@ -41,11 +41,7 @@ async fn set_access_token(
     }
 }
 
-async fn set_user_id(
-    app_handle: &tauri::AppHandle,
-    state: &State<'_, AppState>,
-    user_id: &str,
-) {
+async fn set_user_id(app_handle: &tauri::AppHandle, state: &State<'_, AppState>, user_id: &str) {
     let mut id_guard = state.user_id.lock().unwrap();
     *id_guard = Some(user_id.to_string());
 
@@ -95,8 +91,6 @@ async fn authenticate_user_by_name_cmd(
         .authenticate_user_by_name(&username, &password)
         .await
         .map_err(|e| e.to_string())?;
-
-    println!("Authentication successful: {:?}", response.user.id);
 
     set_access_token(&app_handle, &state, &response.access_token).await;
     set_user_id(&app_handle, &state, &response.user.id).await;
@@ -243,3 +237,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

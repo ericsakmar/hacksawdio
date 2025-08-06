@@ -171,7 +171,8 @@ impl JellyfinClient {
             .order(title.asc())
             .limit(limit.unwrap_or(100) as i64)
             .offset(offset.unwrap_or(0) as i64)
-            .load::<Album>(&mut conn)
+            // .select(Album::as_select())
+            .select(Album::as_select()).load::<Album>(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;
 
         let items = local_albums
@@ -702,6 +703,7 @@ impl JellyfinClient {
     ) -> Result<Option<Album>, JellyfinError> {
         albums
             .filter(jellyfin_id.eq(album_id))
+            .select(Album::as_select())
             .first(conn)
             .optional()
             .map_err(JellyfinError::DbError)

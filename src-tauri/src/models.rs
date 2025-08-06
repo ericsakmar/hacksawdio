@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use crate::schema::{albums, tracks};
 
@@ -11,6 +12,8 @@ pub struct Album {
     pub artist: String,
     pub downloaded: bool,
     pub path: Option<String>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Insertable)]
