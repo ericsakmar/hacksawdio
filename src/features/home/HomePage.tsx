@@ -8,6 +8,8 @@ import { useSearch } from "./useSearch";
 import OnlineIcon from "../components/OnlineIcon";
 import OfflineIcon from "../components/OfflineIcon";
 import { useHomeHotkeys } from "./useHomeHotkeys";
+import OnlineSearchResult from "./OnlineSearchResult";
+import OfflineSearchResult from "./OfflineSearchResult";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -118,25 +120,19 @@ function HomePage() {
           <ul ref={resultsRef}>
             {results.items.map((item) => (
               <li key={item.id} data-album-id={item.id}>
-                <div className="grid grid-cols-[auto_1fr] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2">
-                  {item.downloaded ? (
-                    <button
-                      className="row-span-2 mt-1 focus:outline-none text-green-300 cursor-pointer"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <CircleCheckIcon />
-                    </button>
-                  ) : (
-                    <button
-                      className="row-span-2 mt-1 opacity-70 focus:outline-none cursor-pointer"
-                      onClick={() => handleDownload(item.id)}
-                    >
-                      <DownloadIcon />
-                    </button>
-                  )}
-                  <div>{item.name}</div>
-                  <div className="opacity-70">{item.albumArtist}</div>
-                </div>
+                {isOnline ? (
+                  <OnlineSearchResult
+                    item={item}
+                    handleDelete={handleDelete}
+                    handleDownload={handleDownload}
+                  />
+                ) : (
+                  <OfflineSearchResult
+                    item={item}
+                    handleDelete={handleDelete}
+                    handleDownload={handleDownload}
+                  />
+                )}
               </li>
             ))}
           </ul>
