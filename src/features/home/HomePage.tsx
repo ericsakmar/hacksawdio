@@ -51,6 +51,74 @@ function HomePage() {
     }
   );
 
+  // move to the next search result with "j"
+  useHotkeys(
+    "j",
+    () => {
+      if (!results || results.items.length === 0) {
+        return;
+      }
+
+      const currentIndex = results.items.findIndex(
+        (item) => item.id === focusedAlbumId
+      );
+
+      if (currentIndex < results.items.length - 1) {
+        setFocusedAlbumId(results.items[currentIndex + 1].id);
+      }
+    },
+    {
+      preventDefault: true,
+    }
+  );
+
+  // move to the previous search result with "k"
+  useHotkeys(
+    "k",
+    () => {
+      if (!results || results.items.length === 0) {
+        return;
+      }
+
+      const currentIndex = results.items.findIndex(
+        (item) => item.id === focusedAlbumId
+      );
+
+      if (currentIndex > 0) {
+        setFocusedAlbumId(results.items[currentIndex - 1].id);
+      }
+    },
+    {
+      preventDefault: true,
+    }
+  );
+
+  // go to previous page with "h"
+  useHotkeys(
+    "h",
+    () => {
+      if (offset > 0) {
+        executeSearch(Math.max(0, offset - limit));
+      }
+    },
+    {
+      preventDefault: true,
+    }
+  );
+
+  // go to next page with "l"
+  useHotkeys(
+    "l",
+    () => {
+      if (results && results.items.length >= limit) {
+        executeSearch(offset + limit);
+      }
+    },
+    {
+      preventDefault: true,
+    }
+  );
+
   // toggle online/offline mode with "cmd + o"
   useHotkeys(
     "meta+o",
