@@ -24,6 +24,7 @@ mod schema;
 pub struct AppState {
     jellyfin_client: Arc<JellyfinClient>,
     auth_token: Arc<Mutex<Option<String>>>,
+    user_id: Arc<Mutex<Option<String>>>,
     download_queue: DownloadQueue,
 }
 
@@ -40,12 +41,31 @@ async fn set_access_token(
     }
 }
 
+async fn set_user_id(
+    app_handle: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+    user_id: &str,
+) {
+    let mut id_guard = state.user_id.lock().unwrap();
+    *id_guard = Some(user_id.to_string());
+
+    if let Ok(store) = app_handle.store("store.json") {
+        store.set("user_id", json!(user_id));
+    }
+}
+
 async fn get_access_token(state: &State<'_, AppState>) -> Result<String, String> {
     let token_guard = state.auth_token.lock().unwrap();
 
     token_guard
         .clone()
         .ok_or_else(|| "Unauthorized".to_string())
+}
+
+async fn get_user_id(state: &State<'_, AppState>) -> Result<String, String> {
+    let id_guard = state.user_id.lock().unwrap();
+
+    id_guard.clone().ok_or_else(|| "Unauthorized".to_string())
 }
 
 #[tauri::command]
@@ -76,7 +96,10 @@ async fn authenticate_user_by_name_cmd(
         .await
         .map_err(|e| e.to_string())?;
 
+    println!("Authentication successful: {:?}", response.user.id);
+
     set_access_token(&app_handle, &state, &response.access_token).await;
+    set_user_id(&app_handle, &state, &response.user.id).await;
 
     Ok(response)
 }
@@ -92,10 +115,17 @@ async fn search_albums(
     let client = &state.jellyfin_client;
 
     let access_token = get_access_token(&state).await?;
+    let user_id = get_user_id(&state).await?;
 
     if online {
         return client
-            .search_albums(&search, &access_token, limit, offset)
+            .search_albums(
+                &search,
+                &access_token,
+                limit,
+                offset,
+                Some(user_id.as_str()),
+            )
             .await
             .map_err(|e| e.to_string());
     }
@@ -115,9 +145,15 @@ async fn download_album(
     let client = &state.jellyfin_client;
 
     let access_token = get_access_token(&state).await?;
+    let user_id = get_user_id(&state).await?;
 
     client
-        .download_album(&app_handle, &album_id, &access_token)
+        .download_album(
+            &app_handle,
+            &album_id,
+            &access_token,
+            Some(user_id.as_str()),
+        )
         .await
         .map_err(|e| e.to_string())
 }
@@ -144,6 +180,12 @@ pub fn run() {
             let auth_token = Arc::new(Mutex::new(
                 store
                     .get("access_token")
+                    .and_then(|v| v.as_str().map(String::from)),
+            ));
+
+            let user_id = Arc::new(Mutex::new(
+                store
+                    .get("user_id")
                     .and_then(|v| v.as_str().map(String::from)),
             ));
 
@@ -177,6 +219,7 @@ pub fn run() {
             app.manage(AppState {
                 jellyfin_client,
                 auth_token,
+                user_id,
                 download_queue,
             });
 

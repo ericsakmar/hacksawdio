@@ -99,21 +99,33 @@ impl JellyfinClient {
         access_token: &str,
         limit: Option<u32>,
         offset: Option<u32>,
+        user_id: Option<&str>,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
-        // return no results if search is empty
-        // if search.is_empty() {
-        //     return Ok(AlbumSearchResponse {
-        //         total_record_count: 0,
-        //         start_index: offset.unwrap_or(0),
-        //         items: Vec::new(),
-        //     });
-        // }
+        // return recents if search is empty
+        if search.is_empty() {
+            let recents = self
+                .get_recents(access_token, limit, offset, user_id)
+                .await?;
+
+            return self.add_downloaded_state(&recents).await;
+        }
 
         let album_results = self
-            .search_jellyfin(Some(search), "MusicAlbum", access_token, None, None, None)
+            .search_jellyfin(
+                Some(search),
+                "MusicAlbum",
+                access_token,
+                None,
+                None,
+                None,
+                None,
+                user_id,
+            )
             .await?;
 
-        let artist_album_results = self.search_albums_by_artist(search, access_token).await?;
+        let artist_album_results = self
+            .search_albums_by_artist(search, access_token, user_id)
+            .await?;
 
         let mut combined_items =
             self.combine_jellyfin_items(album_results.items, artist_album_results.items);
@@ -184,6 +196,7 @@ impl JellyfinClient {
         app_handle: &tauri::AppHandle,
         album_id: &str,
         access_token: &str,
+        user_id: Option<&str>,
     ) -> Result<(), JellyfinError> {
         let mut conn = self
             .db_pool
@@ -191,7 +204,9 @@ impl JellyfinClient {
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
         // get the album
-        let album = self.sync_album(album_id, access_token, &mut conn).await?;
+        let album = self
+            .sync_album(album_id, access_token, &mut conn, user_id)
+            .await?;
 
         if album.downloaded {
             return Ok(());
@@ -320,9 +335,19 @@ impl JellyfinClient {
         &self,
         search: &str,
         access_token: &str,
+        user_id: Option<&str>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let artist_results = self
-            .search_jellyfin(Some(search), "MusicArtist", access_token, None, None, None)
+            .search_jellyfin(
+                Some(search),
+                "MusicArtist",
+                access_token,
+                None,
+                None,
+                None,
+                None,
+                user_id,
+            )
             .await?;
 
         let artist_ids: Vec<String> = artist_results
@@ -347,7 +372,9 @@ impl JellyfinClient {
                 access_token,
                 None,
                 None,
+                None,
                 Some(artist_ids),
+                user_id,
             )
             .await;
 
@@ -359,22 +386,23 @@ impl JellyfinClient {
         search: Option<&str>,
         item_types: &str,
         access_token: &str,
+        sort_by: Option<&str>,
         limit: Option<u32>,
         offset: Option<u32>,
         artist_ids: Option<Vec<String>>,
+        user_id: Option<&str>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let limit = limit.unwrap_or(100);
         let offset = offset.unwrap_or(0);
 
-        // let url = format!(
-        //     "{}/Items?includeItemTypes={}&searchTerm={}&recursive=true&limit={}&startIndex={}&sortBy=Album,AlbumArtist",
-        //     self.base_url, item_types, search, limit, offset
-        // );
-
         let mut url = Url::parse(&self.base_url)
             .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
 
-        url.set_path("/Items");
+        if let Some(user_id) = user_id {
+            url.set_path(&format!("/Users/{}/Items", user_id));
+        } else {
+            url.set_path("/Items");
+        }
 
         url.query_pairs_mut()
             .append_pair("includeItemTypes", item_types)
@@ -393,7 +421,9 @@ impl JellyfinClient {
                 .append_pair("artistIds", &artist_ids_str);
         }
 
-        println!("Jellyfin search URL: {}", url);
+        if let Some(sort_by) = sort_by {
+            url.query_pairs_mut().append_pair("sortBy", sort_by);
+        }
 
         let response = self
             .http_client
@@ -430,12 +460,24 @@ impl JellyfinClient {
         &self,
         item_id: &str,
         access_token: &str,
+        user_id: Option<&str>,
     ) -> Result<JellyfinItem, JellyfinError> {
-        let url = format!("{}/Items?ids={},recursive=true", self.base_url, item_id);
+        let mut url = Url::parse(&self.base_url)
+            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
+
+        if let Some(user_id) = user_id {
+            url.set_path(&format!("/Users/{}/Items", user_id));
+        } else {
+            url.set_path("/Items");
+        }
+
+        url.query_pairs_mut()
+            .append_pair("ids", item_id)
+            .append_pair("recursive", "true");
 
         let response = self
             .http_client
-            .get(&url)
+            .get(url.to_string())
             .header(
                 "Authorization",
                 format!(
@@ -447,8 +489,8 @@ impl JellyfinClient {
             .await?;
 
         if response.status().is_success() {
-            let items = response.json::<JellyfinItemsResponse>().await?;
-            let first = items.items.first().cloned();
+            let mut items = response.json::<JellyfinItemsResponse>().await?;
+            let first = items.items.drain(..).next();
 
             if let Some(item) = first {
                 Ok(item)
@@ -613,6 +655,7 @@ impl JellyfinClient {
         album_id: &str,
         access_token: &str,
         conn: &mut crate::db::Connection,
+        user_id: Option<&str>,
     ) -> Result<Album, JellyfinError> {
         // Check if the album already exists in the database
         let local_album = self.find_album(album_id, conn)?;
@@ -621,7 +664,9 @@ impl JellyfinClient {
             Some(album) => Ok(album),
             None => {
                 // album does not exist, we will insert it
-                let album_info = self.get_jellyfin_item(album_id, access_token).await?;
+                let album_info = self
+                    .get_jellyfin_item(album_id, access_token, user_id)
+                    .await?;
 
                 let new_album = NewAlbum {
                     jellyfin_id: album_id,
@@ -718,5 +763,65 @@ impl JellyfinClient {
         }
 
         unique_items.into_iter().collect()
+    }
+
+    async fn get_recents(
+        &self,
+        access_token: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+        user_id: Option<&str>,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        let limit = limit.unwrap_or(100);
+        let offset = offset.unwrap_or(0);
+
+        let mut url = Url::parse(&self.base_url)
+            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
+
+        if let Some(user_id) = user_id {
+            url.set_path(&format!("/Users/{}/Items/Latest", user_id));
+        } else {
+            url.set_path("/Items/Latest");
+        }
+
+        url.query_pairs_mut()
+            .append_pair("includeItemTypes", "MusicAlbum")
+            .append_pair("limit", &limit.to_string())
+            .append_pair("startIndex", &offset.to_string());
+
+        let response = self
+            .http_client
+            .get(&url.to_string())
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let items = response.json::<Vec<JellyfinItem>>().await?;
+
+            Ok(JellyfinItemsResponse {
+                total_record_count: items.len() as u32,
+                start_index: offset,
+                items,
+            })
+        } else {
+            let status = response.status();
+
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "No error message".to_string());
+
+            Err(JellyfinError::ApiError {
+                status,
+                message: error_text,
+            })
+        }
     }
 }

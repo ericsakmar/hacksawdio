@@ -9,6 +9,7 @@ pub struct AuthRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct AuthResponse {
     pub access_token: String,
     pub server_id: String,
@@ -16,6 +17,7 @@ pub struct AuthResponse {
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct UserDetails {
     pub id: String,
     pub name: String,

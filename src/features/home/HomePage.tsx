@@ -125,7 +125,6 @@ function HomePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for an artist or album"
-          required
           className="flex-grow focus:outline-none"
           ref={searchInputRef}
         />
