@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlbumSearchResponse } from "../auth/types";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -9,6 +9,11 @@ export function useSearch(isOnline: boolean) {
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<AlbumSearchResponse | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
+  // search again when changing between online and offline mode
+  useEffect(() => {
+    executeSearch(0);
+  }, [isOnline]);
 
   const executeSearch = async (newOffset: number) => {
     setIsSearching(true);

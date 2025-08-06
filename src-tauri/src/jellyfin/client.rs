@@ -150,9 +150,11 @@ impl JellyfinClient {
 
         let local_albums = albums
             .filter(
-                title
-                    .like(format!("%{}%", search))
-                    .or(artist.like(format!("%{}%", search))),
+                downloaded.eq(true).and(
+                    title
+                        .like(format!("%{}%", search))
+                        .or(artist.like(format!("%{}%", search))),
+                ),
             )
             .order(title.asc())
             .limit(limit.unwrap_or(100) as i64)
