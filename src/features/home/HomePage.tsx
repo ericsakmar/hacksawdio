@@ -6,6 +6,8 @@ import DownloadIcon from "../components/DownloadIcon";
 import CircleCheckIcon from "../components/CircleCheckIcon";
 import { useSearch } from "./useSearch";
 import { useHotkeys } from "react-hotkeys-hook";
+import OnlineIcon from "../components/OnlineIcon";
+import OfflineIcon from "../components/OfflineIcon";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -54,7 +56,10 @@ function HomePage() {
     () => {
       setIsOnline((prev) => !prev);
     },
-    { preventDefault: true }
+    {
+      preventDefault: true,
+      enableOnFormTags: ["INPUT", "TEXTAREA"],
+    }
   );
 
   // keeps focus between searches
@@ -101,13 +106,15 @@ function HomePage() {
 
   return (
     <main className="container mx-auto p-4">
-      <header>
+      <header className="relative">
         <Logo animated={isSearching || isDownloading} />
+        <button
+          onClick={handleOnlineToggle}
+          className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
+        >
+          {isOnline ? <OnlineIcon /> : <OfflineIcon />}
+        </button>
       </header>
-
-      <button onClick={handleOnlineToggle} className="mt-4">
-        {isOnline ? "online" : "offline"}
-      </button>
 
       <form
         onSubmit={handleSubmit}
