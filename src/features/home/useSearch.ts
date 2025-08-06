@@ -21,13 +21,6 @@ export function useSearch() {
 
     setResults(res);
     setOffset(newOffset);
-
-    if (res.items.length > 0) {
-      setFocusedAlbumId(res.items[0].id);
-    } else {
-      setFocusedAlbumId(null);
-    }
-
     setIsSearching(false);
   };
 

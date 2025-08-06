@@ -1,25 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { AlbumSearchResponse } from "../auth/types";
 import Logo from "./Logo";
 import { useDownloadStatus } from "./useDownloadStatus";
 import { useFocusOnKeyPress } from "./useFocusOnKeyPress";
-import DownloadIcon from "./DownloadIcon";
-import CircleCheckIcon from "./CircleCheckIcon";
-
-const limit = 50;
+import DownloadIcon from "../components/DownloadIcon";
+import CircleCheckIcon from "../components/CircleCheckIcon";
+import { useSearch } from "./useSearch";
 
 function HomePage() {
-  const [search, setSearch] = useState("");
-  const [offset, setOffset] = useState(0);
-  const [results, setResults] = useState<AlbumSearchResponse | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
-  const [isSearching, setIsSearching] = useState(false);
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
+  const {
+    executeSearch,
+    isSearching,
+    limit,
+    offset,
+    results,
+    search,
+    setDownloaded,
+    setSearch,
+  } = useSearch();
 
   useFocusOnKeyPress("/", searchInputRef);
+
+  // keeps focus between searches
+  useEffect(() => {
+    if (results && results.items.length > 0) {
+      setFocusedAlbumId(results.items[0].id);
+    } else {
+      setFocusedAlbumId(null);
+    }
+  }, [results]);
 
   useEffect(() => {
     if (focusedAlbumId && resultsRef.current) {
@@ -30,47 +43,11 @@ function HomePage() {
       const buttonToFocus = liElement?.querySelector("button");
       buttonToFocus?.focus();
     }
-  }, [results, focusedAlbumId]);
-
-  const executeSearch = async (newOffset: number) => {
-    setIsSearching(true);
-
-    const res = await invoke<AlbumSearchResponse>("search_albums", {
-      search,
-      limit,
-      offset: newOffset,
-    });
-
-    setResults(res);
-    setOffset(newOffset);
-
-    if (res.items.length > 0) {
-      setFocusedAlbumId(res.items[0].id);
-    } else {
-      setFocusedAlbumId(null);
-    }
-
-    setIsSearching(false);
-  };
+  }, [focusedAlbumId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     executeSearch(0);
-  };
-
-  const setDownloaded = (id: string, downloaded: boolean) => {
-    setResults((prev) => {
-      if (!prev) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        items: prev.items.map((item) =>
-          item.id === id ? { ...item, downloaded } : item
-        ),
-      };
-    });
   };
 
   const handleDownload = async (id: string) => {
