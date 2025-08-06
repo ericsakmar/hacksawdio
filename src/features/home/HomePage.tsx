@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import Logo from "./Logo";
 import { useDownloadStatus } from "./useDownloadStatus";
-import { useFocusOnKeyPress } from "./useFocusOnKeyPress";
 import DownloadIcon from "../components/DownloadIcon";
 import CircleCheckIcon from "../components/CircleCheckIcon";
 import { useSearch } from "./useSearch";
+import { useHotkeys } from "react-hotkeys-hook";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(false);
+
   const {
     executeSearch,
     isSearching,
@@ -21,9 +23,39 @@ function HomePage() {
     search,
     setDownloaded,
     setSearch,
-  } = useSearch();
+  } = useSearch(isOnline);
 
-  useFocusOnKeyPress("/", searchInputRef);
+  // focus the search input when "slash" is pressed
+  useHotkeys(
+    "slash",
+    () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    },
+    { preventDefault: true }
+  );
+
+  // blur the search input when "Escape" is pressed
+  useHotkeys(
+    "esc",
+    () => {
+      if (document.activeElement === searchInputRef.current) {
+        searchInputRef.current?.blur();
+      }
+    },
+    {
+      enableOnFormTags: ["INPUT", "TEXTAREA"],
+    }
+  );
+
+  // toggle online/offline mode with "cmd + o"
+  useHotkeys(
+    "meta+o",
+    () => {
+      setIsOnline((prev) => !prev);
+    },
+    { preventDefault: true }
+  );
 
   // keeps focus between searches
   useEffect(() => {
@@ -34,6 +66,7 @@ function HomePage() {
     }
   }, [results]);
 
+  // sets the focus
   useEffect(() => {
     if (focusedAlbumId && resultsRef.current) {
       const liElement = resultsRef.current.querySelector(
@@ -62,11 +95,19 @@ function HomePage() {
     setFocusedAlbumId(id);
   };
 
+  const handleOnlineToggle = () => {
+    setIsOnline((prev) => !prev);
+  };
+
   return (
     <main className="container mx-auto p-4">
       <header>
         <Logo animated={isSearching || isDownloading} />
       </header>
+
+      <button onClick={handleOnlineToggle} className="mt-4">
+        {isOnline ? "online" : "offline"}
+      </button>
 
       <form
         onSubmit={handleSubmit}

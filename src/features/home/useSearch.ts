@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 const limit = 50;
 
-export function useSearch() {
+export function useSearch(isOnline: boolean) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<AlbumSearchResponse | null>(null);
