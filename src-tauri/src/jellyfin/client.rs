@@ -155,6 +155,10 @@ impl JellyfinClient {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
+        if search.is_empty() {
+            return self.get_recents_offline(limit, offset).await;
+        }
+
         let mut conn = self
             .db_pool
             .get()
@@ -171,8 +175,8 @@ impl JellyfinClient {
             .order(title.asc())
             .limit(limit.unwrap_or(100) as i64)
             .offset(offset.unwrap_or(0) as i64)
-            // .select(Album::as_select())
-            .select(Album::as_select()).load::<Album>(&mut conn)
+            .select(Album::as_select())
+            .load::<Album>(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;
 
         let items = local_albums
@@ -258,6 +262,7 @@ impl JellyfinClient {
             .set((
                 downloaded.eq(true),
                 path.eq(dir.to_string_lossy().to_string()),
+                updated_at.eq(diesel::dsl::now),
             ))
             .execute(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;
@@ -825,5 +830,41 @@ impl JellyfinClient {
                 message: error_text,
             })
         }
+    }
+
+    async fn get_recents_offline(
+        &self,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<AlbumSearchResponse, JellyfinError> {
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        let local_albums = albums
+            .filter(downloaded.eq(true))
+            .order(updated_at.desc())
+            .limit(limit.unwrap_or(100) as i64)
+            .offset(offset.unwrap_or(0) as i64)
+            .select(Album::as_select())
+            .load::<Album>(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
+        let items = local_albums
+            .into_iter()
+            .map(|album| AlbumSearchResponseItem {
+                name: album.title,
+                id: album.jellyfin_id.clone(),
+                album_artist: album.artist,
+                downloaded: album.downloaded,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(AlbumSearchResponse {
+            total_record_count: items.len() as u32,
+            start_index: offset.unwrap_or(0),
+            items,
+        })
     }
 }

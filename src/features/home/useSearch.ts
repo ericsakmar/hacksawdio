@@ -4,11 +4,32 @@ import { invoke } from "@tauri-apps/api/core";
 
 const limit = 50;
 
+function getSummary(
+  search: string,
+  resultCount: number,
+  limit: number,
+  offset: number
+) {
+  if (search === "") {
+    return "Recently added";
+  }
+
+  if (resultCount < limit) {
+    return `${resultCount} albums`;
+  }
+
+  return `${offset + 1} to ${Math.min(
+    offset + limit,
+    resultCount
+  )} of ${resultCount} albums`;
+}
+
 export function useSearch(isOnline: boolean) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<AlbumSearchResponse | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [summary, setSummary] = useState("");
 
   // search again when changing between online and offline mode
   useEffect(() => {
@@ -25,6 +46,7 @@ export function useSearch(isOnline: boolean) {
       online: isOnline,
     });
 
+    setSummary(getSummary(search, res.totalRecordCount, limit, newOffset));
     setResults(res);
     setOffset(newOffset);
     setIsSearching(false);
@@ -55,5 +77,6 @@ export function useSearch(isOnline: boolean) {
     offset,
     setOffset,
     limit,
+    summary,
   };
 }

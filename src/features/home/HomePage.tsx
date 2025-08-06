@@ -25,6 +25,7 @@ function HomePage() {
     search,
     setDownloaded,
     setSearch,
+    summary,
   } = useSearch(isOnline);
 
   // focus the search input when "slash" is pressed
@@ -136,14 +137,7 @@ function HomePage() {
 
       {results ? (
         <div>
-          <p className="mb-4 ml-2 opacity-70">
-            {results.totalRecordCount < limit
-              ? `${results.totalRecordCount} albums`
-              : `${offset + 1} to ${Math.min(
-                  offset + limit,
-                  results.totalRecordCount
-                )} of ${results.totalRecordCount} albums`}
-          </p>
+          <p className="mb-4 ml-2 opacity-70">{summary}</p>
 
           <ul ref={resultsRef}>
             {results.items.map((item) => (
