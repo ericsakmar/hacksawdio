@@ -86,14 +86,22 @@ async fn search_albums(
     search: String,
     limit: Option<u32>,
     offset: Option<u32>,
+    online: bool,
     state: State<'_, AppState>,
 ) -> Result<AlbumSearchResponse, String> {
     let client = &state.jellyfin_client;
 
     let access_token = get_access_token(&state).await?;
 
+    if online {
+        return client
+            .search_albums(&search, &access_token, limit, offset)
+            .await
+            .map_err(|e| e.to_string());
+    }
+
     client
-        .search_albums(&search, &access_token, limit, offset)
+        .search_albums_offline(&search, limit, offset)
         .await
         .map_err(|e| e.to_string())
 }

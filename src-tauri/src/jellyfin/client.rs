@@ -137,6 +137,46 @@ impl JellyfinClient {
         self.add_downloaded_state(&response).await
     }
 
+    pub async fn search_albums_offline(
+        &self,
+        search: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<AlbumSearchResponse, JellyfinError> {
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        let local_albums = albums
+            .filter(
+                title
+                    .like(format!("%{}%", search))
+                    .or(artist.like(format!("%{}%", search))),
+            )
+            .order(title.asc())
+            .limit(limit.unwrap_or(100) as i64)
+            .offset(offset.unwrap_or(0) as i64)
+            .load::<Album>(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
+        let items = local_albums
+            .into_iter()
+            .map(|album| AlbumSearchResponseItem {
+                name: album.title,
+                id: album.jellyfin_id.clone(),
+                album_artist: album.artist,
+                downloaded: album.downloaded,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(AlbumSearchResponse {
+            total_record_count: items.len() as u32,
+            start_index: offset.unwrap_or(0),
+            items,
+        })
+    }
+
     pub async fn download_album(
         &self,
         app_handle: &tauri::AppHandle,

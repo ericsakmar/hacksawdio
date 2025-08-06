@@ -17,6 +17,7 @@ export function useSearch(isOnline: boolean) {
       search,
       limit,
       offset: newOffset,
+      online: isOnline,
     });
 
     setResults(res);
