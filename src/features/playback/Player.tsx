@@ -9,7 +9,6 @@ function Player() {
   }
 
   const src = convertFileSrc(track.playbackUrl);
-  console.log("Audio source:", src);
 
   return (
     <div>
@@ -20,14 +19,7 @@ function Player() {
         </p>
       </div>
 
-      <audio
-        controls
-        className="w-full mt-4"
-        src={src}
-        onError={(e) => {
-          console.error("Error loading audio:", e.currentTarget.error);
-        }}
-      />
+      <audio controls className="w-full mt-4" src={src} />
     </div>
   );
 }
