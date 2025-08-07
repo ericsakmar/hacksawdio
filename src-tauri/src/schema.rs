@@ -21,6 +21,7 @@ diesel::table! {
         album_id -> Integer,
         path -> Nullable<Text>,
         downloaded -> Bool,
+        track_index -> Integer,
     }
 }
 

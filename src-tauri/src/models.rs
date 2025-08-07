@@ -1,6 +1,6 @@
+use crate::schema::{albums, tracks};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
-use crate::schema::{albums, tracks};
 
 #[derive(Identifiable, Queryable, Selectable, Debug, PartialEq)]
 #[diesel(table_name = crate::schema::albums)]
@@ -25,7 +25,6 @@ pub struct NewAlbum<'a> {
     pub downloaded: bool,
 }
 
-
 #[derive(Identifiable, Queryable, Selectable, Associations, Debug, PartialEq)]
 #[diesel(belongs_to(Album))]
 #[diesel(table_name = tracks)]
@@ -37,6 +36,7 @@ pub struct Track {
     pub album_id: i32,
     pub path: Option<String>,
     pub downloaded: bool,
+    pub track_index: i32,
 }
 
 #[derive(Insertable)]
@@ -47,4 +47,5 @@ pub struct NewTrack<'a> {
     pub album_id: i32,
     pub path: Option<String>,
     pub downloaded: bool,
+    pub track_index: i32,
 }

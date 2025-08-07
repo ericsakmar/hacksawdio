@@ -238,6 +238,7 @@ impl JellyfinClient {
                     album_id: album.id,
                     downloaded: false,
                     path: Some(download_path.to_string_lossy().to_string()),
+                    track_index: track.index_number.unwrap_or(0) as i32,
                 })
                 .execute(&mut conn)
                 .map_err(|e| JellyfinError::DbError(e))?;
@@ -665,36 +666,34 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        let local_album_res = self.find_album(album_id, &mut conn)?;
+        let local_album =
+            self.find_album(album_id, &mut conn)?
+                .ok_or_else(|| JellyfinError::ApiError {
+                    status: StatusCode::NOT_FOUND,
+                    message: "Album not found".to_string(),
+                })?;
 
-        match local_album_res {
-            Some(local_album) => {
-                // get the tracks for the album
-                let local_tracks = crate::schema::tracks::dsl::tracks
-                    .filter(crate::schema::tracks::dsl::album_id.eq(local_album.id))
-                    .select(crate::models::Track::as_select())
-                    .load::<crate::models::Track>(&mut conn)
-                    .map_err(|e| JellyfinError::DbError(e))?;
+        // get the tracks for the album
+        let local_tracks = crate::schema::tracks::dsl::tracks
+            .filter(crate::schema::tracks::dsl::album_id.eq(local_album.id))
+            .select(crate::models::Track::as_select())
+            .order(crate::schema::tracks::dsl::track_index.asc())
+            .load::<crate::models::Track>(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
 
-                let result = AlbumInfoResponse {
-                    name: local_album.title,
-                    artist: local_album.artist,
-                    tracks: local_tracks
-                        .into_iter()
-                        .map(|track| AlbumTrackResponse {
-                            name: track.name,
-                            playback_url: track.path.unwrap_or_default(),
-                        })
-                        .collect(),
-                };
+        let result = AlbumInfoResponse {
+            name: local_album.title,
+            artist: local_album.artist,
+            tracks: local_tracks
+                .into_iter()
+                .map(|track| AlbumTrackResponse {
+                    name: track.name,
+                    playback_url: track.path.unwrap_or_default(),
+                })
+                .collect(),
+        };
 
-                Ok(result)
-            }
-            None => Err(JellyfinError::ApiError {
-                status: StatusCode::NOT_FOUND,
-                message: "Album not found".to_string(),
-            }),
-        }
+        Ok(result)
     }
 
     async fn sync_album(

@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 use crate::download_queue::{process_downloads, DownloadQueue};
 use crate::jellyfin::client::JellyfinClient;
-use crate::jellyfin::models::{AlbumSearchResponse, AuthResponse, SessionResponse};
+use crate::jellyfin::models::{
+    AlbumInfoResponse, AlbumSearchResponse, AuthResponse, SessionResponse,
+};
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations};
 
@@ -162,6 +164,19 @@ async fn delete_album(album_id: String, state: State<'_, AppState>) -> Result<()
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn get_album_info(
+    album_id: String,
+    state: State<'_, AppState>,
+) -> Result<AlbumInfoResponse, String> {
+    let client = &state.jellyfin_client;
+
+    client
+        .get_album_info(&album_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let device_id = Uuid::new_v4().to_string();
@@ -232,9 +247,9 @@ pub fn run() {
             get_session,
             search_albums,
             download_album,
-            delete_album
+            delete_album,
+            get_album_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
