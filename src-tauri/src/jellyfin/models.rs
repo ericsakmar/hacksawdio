@@ -77,3 +77,18 @@ pub struct AlbumSearchResponseItem {
     pub album_artist: String,
     pub downloaded: bool,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct AlbumInfoResponse {
+    pub name: String,
+    pub artist: String,
+    pub tracks: Vec<AlbumTrackResponse>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct AlbumTrackResponse {
+    pub name: String,
+    pub playback_url: String,
+}

@@ -3,6 +3,7 @@ use super::models::{
     AlbumSearchResponse, AlbumSearchResponseItem, AuthRequest, AuthResponse, JellyfinItem,
     JellyfinItemsResponse,
 };
+use crate::jellyfin::models::{AlbumInfoResponse, AlbumTrackResponse};
 use crate::models::{Album, NewAlbum};
 use crate::schema::albums::dsl::*;
 use diesel::prelude::*;
@@ -50,6 +51,7 @@ impl JellyfinClient {
         }
     }
 
+    // JELLYFIN STUFF
     pub async fn authenticate_user_by_name(
         &self,
         username: &str,
@@ -149,6 +151,7 @@ impl JellyfinClient {
         self.add_downloaded_state(&response).await
     }
 
+    // LOCAL ITEMS
     pub async fn search_albums_offline(
         &self,
         search: &str,
@@ -654,6 +657,44 @@ impl JellyfinClient {
             .map_err(|e| JellyfinError::GenericError(format!("Failed to flush file: {}", e)))?;
 
         Ok(())
+    }
+
+    pub async fn get_album_info(&self, album_id: &str) -> Result<AlbumInfoResponse, JellyfinError> {
+        let mut conn = self
+            .db_pool
+            .get()
+            .map_err(|e| JellyfinError::DbPoolError(e))?;
+
+        let local_album_res = self.find_album(album_id, &mut conn)?;
+
+        match local_album_res {
+            Some(local_album) => {
+                // get the tracks for the album
+                let local_tracks = crate::schema::tracks::dsl::tracks
+                    .filter(crate::schema::tracks::dsl::album_id.eq(local_album.id))
+                    .select(crate::models::Track::as_select())
+                    .load::<crate::models::Track>(&mut conn)
+                    .map_err(|e| JellyfinError::DbError(e))?;
+
+                let result = AlbumInfoResponse {
+                    name: local_album.title,
+                    artist: local_album.artist,
+                    tracks: local_tracks
+                        .into_iter()
+                        .map(|track| AlbumTrackResponse {
+                            name: track.name,
+                            playback_url: track.path.unwrap_or_default(),
+                        })
+                        .collect(),
+                };
+
+                Ok(result)
+            }
+            None => Err(JellyfinError::ApiError {
+                status: StatusCode::NOT_FOUND,
+                message: "Album not found".to_string(),
+            }),
+        }
     }
 
     async fn sync_album(
