@@ -91,83 +91,82 @@ function HomePage() {
   };
 
   return (
-    <>
-      <main className="container mx-auto p-4">
-        <header className="relative">
-          <Logo animated={isSearching || isDownloading} />
-          <button
-            onClick={handleOnlineToggle}
-            className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
-          >
-            {isOnline ? <OnlineIcon /> : <OfflineIcon />}
-          </button>
-        </header>
-
-        <form
-          onSubmit={handleSubmit}
-          className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
+    <main className="container mx-auto p-4 flex flex-col h-screen">
+      <header className="relative">
+        <Logo animated={isSearching || isDownloading} />
+        <button
+          onClick={handleOnlineToggle}
+          className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
         >
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search for an artist or album"
-            className="flex-grow focus:outline-none"
-            ref={searchInputRef}
-          />
+          {isOnline ? <OnlineIcon /> : <OfflineIcon />}
+        </button>
+      </header>
 
-          <button type="submit" className="focus:outline-blue-500">
-            Search
-          </button>
-        </form>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
+      >
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search for an artist or album"
+          className="flex-grow focus:outline-none"
+          ref={searchInputRef}
+        />
 
-        {results ? (
-          <div>
-            <p className="mb-4 ml-2 opacity-70">{summary}</p>
+        <button type="submit" className="focus:outline-blue-500">
+          Search
+        </button>
+      </form>
 
-            <ul ref={resultsRef}>
-              {results.items.map((item) => (
-                <li key={item.id} data-album-id={item.id}>
-                  {isOnline ? (
-                    <OnlineSearchResult
-                      item={item}
-                      handleDelete={handleDelete}
-                      handleDownload={handleDownload}
-                    />
-                  ) : (
-                    <OfflineSearchResult
-                      item={item}
-                      handleDelete={handleDelete}
-                      handlePlay={handlePlay}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
+      <p className="mb-4 ml-2 opacity-70">{summary}</p>
 
-            <div className="flex justify-between mt-4">
-              <button
-                onClick={() => executeSearch(Math.max(0, offset - limit))}
-                disabled={offset === 0}
-                className="disabled:hidden"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => executeSearch(offset + limit)}
-                disabled={results.items.length < limit}
-                className="disabled:hidden"
-              >
-                Next
-              </button>
-            </div>
+      {results ? (
+        <div className="flex-grow flex-shrink overflow-y-auto mb-4">
+          <ul ref={resultsRef} className="">
+            {results.items.map((item) => (
+              <li key={item.id} data-album-id={item.id}>
+                {isOnline ? (
+                  <OnlineSearchResult
+                    item={item}
+                    handleDelete={handleDelete}
+                    handleDownload={handleDownload}
+                  />
+                ) : (
+                  <OfflineSearchResult
+                    item={item}
+                    handleDelete={handleDelete}
+                    handlePlay={handlePlay}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex justify-between mt-4">
+            <button
+              onClick={() => executeSearch(Math.max(0, offset - limit))}
+              disabled={offset === 0}
+              className="disabled:hidden"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => executeSearch(offset + limit)}
+              disabled={results.items.length < limit}
+              className="disabled:hidden"
+            >
+              Next
+            </button>
           </div>
-        ) : null}
-      </main>
-      <div className="sticky bottom-0 left-0 right-0 w-full bg-zinc-900 p-4 shadow">
+        </div>
+      ) : null}
+
+      <div className="bg-zinc-900 p-4 shadow rounded">
         <Player />
       </div>
-    </>
+    </main>
   );
 }
 
