@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import Logo from "./Logo";
 import { useDownloadStatus } from "./useDownloadStatus";
-import DownloadIcon from "../components/DownloadIcon";
-import CircleCheckIcon from "../components/CircleCheckIcon";
 import { useSearch } from "./useSearch";
 import OnlineIcon from "../components/OnlineIcon";
 import OfflineIcon from "../components/OfflineIcon";
 import { useHomeHotkeys } from "./useHomeHotkeys";
 import OnlineSearchResult from "./OnlineSearchResult";
 import OfflineSearchResult from "./OfflineSearchResult";
+import { usePlayback } from "../playback/PlaybackProvider";
+import Player from "../playback/Player";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -17,6 +17,7 @@ function HomePage() {
   const isDownloading = useDownloadStatus();
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
+  const { setAlbum } = usePlayback();
 
   const {
     executeSearch,
@@ -73,6 +74,7 @@ function HomePage() {
     setFocusedAlbumId(id);
   };
 
+  // TODO online should keep it in the list, offline should remove it
   const handleDelete = async (id: string) => {
     await invoke("delete_album", { albumId: id });
     setDownloaded(id, false);
@@ -83,79 +85,89 @@ function HomePage() {
     setIsOnline((prev) => !prev);
   };
 
+  const handlePlay = async (id: string) => {
+    const album = await invoke<Album>("get_album_info", { albumId: id });
+    setAlbum(album);
+  };
+
   return (
-    <main className="container mx-auto p-4">
-      <header className="relative">
-        <Logo animated={isSearching || isDownloading} />
-        <button
-          onClick={handleOnlineToggle}
-          className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
+    <>
+      <main className="container mx-auto p-4">
+        <header className="relative">
+          <Logo animated={isSearching || isDownloading} />
+          <button
+            onClick={handleOnlineToggle}
+            className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
+          >
+            {isOnline ? <OnlineIcon /> : <OfflineIcon />}
+          </button>
+        </header>
+
+        <form
+          onSubmit={handleSubmit}
+          className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
         >
-          {isOnline ? <OnlineIcon /> : <OfflineIcon />}
-        </button>
-      </header>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search for an artist or album"
+            className="flex-grow focus:outline-none"
+            ref={searchInputRef}
+          />
 
-      <form
-        onSubmit={handleSubmit}
-        className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
-      >
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search for an artist or album"
-          className="flex-grow focus:outline-none"
-          ref={searchInputRef}
-        />
+          <button type="submit" className="focus:outline-blue-500">
+            Search
+          </button>
+        </form>
 
-        <button type="submit" className="focus:outline-blue-500">
-          Search
-        </button>
-      </form>
+        {results ? (
+          <div>
+            <p className="mb-4 ml-2 opacity-70">{summary}</p>
 
-      {results ? (
-        <div>
-          <p className="mb-4 ml-2 opacity-70">{summary}</p>
+            <ul ref={resultsRef}>
+              {results.items.map((item) => (
+                <li key={item.id} data-album-id={item.id}>
+                  {isOnline ? (
+                    <OnlineSearchResult
+                      item={item}
+                      handleDelete={handleDelete}
+                      handleDownload={handleDownload}
+                    />
+                  ) : (
+                    <OfflineSearchResult
+                      item={item}
+                      handleDelete={handleDelete}
+                      handlePlay={handlePlay}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
 
-          <ul ref={resultsRef}>
-            {results.items.map((item) => (
-              <li key={item.id} data-album-id={item.id}>
-                {isOnline ? (
-                  <OnlineSearchResult
-                    item={item}
-                    handleDelete={handleDelete}
-                    handleDownload={handleDownload}
-                  />
-                ) : (
-                  <OfflineSearchResult
-                    item={item}
-                    handleDelete={handleDelete}
-                    handleDownload={handleDownload}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => executeSearch(Math.max(0, offset - limit))}
-              disabled={offset === 0}
-              className="disabled:hidden"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => executeSearch(offset + limit)}
-              disabled={results.items.length < limit}
-              className="disabled:hidden"
-            >
-              Next
-            </button>
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={() => executeSearch(Math.max(0, offset - limit))}
+                disabled={offset === 0}
+                className="disabled:hidden"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => executeSearch(offset + limit)}
+                disabled={results.items.length < limit}
+                className="disabled:hidden"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
-    </main>
+        ) : null}
+      </main>
+      <div className="sticky bottom-0 left-0 right-0 w-full bg-zinc-900 p-4 shadow">
+        <Player />
+      </div>
+    </>
   );
 }
 

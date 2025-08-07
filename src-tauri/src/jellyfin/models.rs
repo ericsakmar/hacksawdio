@@ -79,7 +79,7 @@ pub struct AlbumSearchResponseItem {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "camelCase")]
 pub struct AlbumInfoResponse {
     pub name: String,
     pub artist: String,
@@ -87,7 +87,7 @@ pub struct AlbumInfoResponse {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "camelCase")]
 pub struct AlbumTrackResponse {
     pub name: String,
     pub playback_url: String,

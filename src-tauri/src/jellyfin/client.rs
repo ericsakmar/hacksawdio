@@ -315,6 +315,8 @@ impl JellyfinClient {
                     }
                 }
 
+                // TODO probably just delete it
+
                 // mark tracks as not downloaded
                 diesel::update(
                     crate::schema::tracks::dsl::tracks
