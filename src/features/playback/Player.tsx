@@ -18,7 +18,7 @@ function Player() {
         <Controls />
 
         <h2 className="text-center text-lg mt-4">
-          {trackIndex}. {track.name}
+          {trackIndex! + 1}. {track.name}
         </h2>
 
         <Seeker />

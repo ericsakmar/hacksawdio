@@ -7,7 +7,7 @@ function PlayCircleIcon({ className }: { className?: string }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="url(#gradient)"
-      strokeWidth="2"
+      strokeWidth="1"
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
