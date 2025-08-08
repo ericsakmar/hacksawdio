@@ -15,7 +15,7 @@ function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
         className="peer row-span-2 mt-1 opacity-70 focus:opacity-100 focus:outline-none focus:text-green-300 cursor-pointer"
         onClick={() => handlePlay(item.id)}
       >
-        <PlayIcon />
+        <PlayIcon className="w-4 h-4" />
       </button>
 
       <div>{item.name}</div>
