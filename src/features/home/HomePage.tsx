@@ -48,11 +48,15 @@ function HomePage() {
   // keeps focus between searches
   useEffect(() => {
     if (results && results.items.length > 0) {
-      setFocusedAlbumId(results.items[0].id);
+      if (focusedAlbumId) {
+        setFocusedAlbumId(focusedAlbumId);
+      } else {
+        setFocusedAlbumId(results.items[0].id);
+      }
     } else {
       setFocusedAlbumId(null);
     }
-  }, [results]);
+  }, [results, focusedAlbumId]);
 
   // sets the focus
   useEffect(() => {
