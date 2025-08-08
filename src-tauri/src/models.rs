@@ -21,6 +21,8 @@ pub struct NewAlbum<'a> {
     pub jellyfin_id: &'a str,
     pub title: &'a str,
     pub artist: &'a str,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, Debug, PartialEq)]

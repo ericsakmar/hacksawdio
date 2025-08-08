@@ -694,6 +694,8 @@ impl JellyfinClient {
                     artist: &album_info
                         .album_artist
                         .unwrap_or_else(|| "Unknown Artist".to_string()),
+                    created_at: chrono::Utc::now().naive_utc(),
+                    updated_at: chrono::Utc::now().naive_utc(),
                 };
 
                 diesel::insert_into(albums)

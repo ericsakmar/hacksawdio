@@ -1,4 +1,5 @@
 use serde_json::json;
+use std::env;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::Manager;
@@ -12,7 +13,7 @@ use crate::jellyfin::models::{
     AlbumInfoResponse, AlbumSearchResponse, AuthResponse, SessionResponse,
 };
 
-use diesel_migrations::{embed_migrations, EmbeddedMigrations};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
@@ -198,6 +199,20 @@ pub fn run() {
                     .get("user_id")
                     .and_then(|v| v.as_str().map(String::from)),
             ));
+
+            // let app_data_dir = tauri::api::path::app_data_dir(&app.config())
+            //     .expect("Failed to get app data directory");
+
+            let app_handle = app.handle();
+
+            let app_data_path = app_handle.path().app_data_dir()?;
+
+            let db_path = app_data_path.join("hacksawdio.db");
+
+            env::set_var("DATABASE_URL", db_path.to_str().expect("Invalid DB path"));
+
+            let mut db_connection = db::establish_connection().get().unwrap();
+            db_connection.run_pending_migrations(MIGRATIONS).unwrap();
 
             let db_pool = db::establish_connection();
 
