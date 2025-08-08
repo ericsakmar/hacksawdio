@@ -5,9 +5,9 @@ function Seeker() {
 
   return (
     <div className="flex items-center justify-center space-x-2 my-2">
-      <span className="text-xs">{`${Math.floor(currentTime / 60)}:${Math.floor(
-        currentTime % 60
-      )
+      <span className="text-xs text-zinc-400">{`${Math.floor(
+        currentTime / 60
+      )}:${Math.floor(currentTime % 60)
         .toString()
         .padStart(2, "0")}`}</span>
 
@@ -21,9 +21,9 @@ function Seeker() {
         className="basis-lg"
       />
 
-      <span className="text-xs">{`${Math.floor(duration / 60)}:${Math.floor(
-        duration % 60
-      )
+      <span className="text-xs text-zinc-400">{`${Math.floor(
+        duration / 60
+      )}:${Math.floor(duration % 60)
         .toString()
         .padStart(2, "0")}`}</span>
     </div>

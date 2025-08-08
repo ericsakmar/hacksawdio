@@ -60,7 +60,7 @@ function Player() {
           >
             <button
               onClick={() => handleTrackSelect(index)}
-              className="inline-block text-left"
+              className="inline-block text-left leading-6"
             >
               {index + 1}. {t.name}
             </button>
