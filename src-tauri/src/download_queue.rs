@@ -59,7 +59,8 @@ fn handle_message(
     rt: &tokio::runtime::Runtime,
     jellyfin_client: &Arc<JellyfinClient>,
     auth_token: &Arc<Mutex<Option<String>>>,
-) -> bool { // returns false if shutdown
+) -> bool {
+    // returns false if shutdown
     match message {
         DownloadQueueMessage::NewTrack(track) => {
             let token = {
@@ -74,20 +75,33 @@ fn handle_message(
                         .await
                     {
                         let error_message = e.to_string();
-                        eprintln!("Error downloading track {}: {}", &track.track_id, &error_message);
-                        app_handle.emit("download-failed", DownloadFailed {
-                            track_id: track.track_id,
-                            error: error_message
-                        }).unwrap();
+                        eprintln!(
+                            "Error downloading track {}: {}",
+                            &track.track_id, &error_message
+                        );
+                        app_handle
+                            .emit(
+                                "download-failed",
+                                DownloadFailed {
+                                    track_id: track.track_id,
+                                    error: error_message,
+                                },
+                            )
+                            .unwrap();
                     }
                 });
             } else {
                 let error_message = "Download failed: No auth token available.".to_string();
                 eprintln!("{}", &error_message);
-                app_handle.emit("download-failed", DownloadFailed {
-                    track_id: track.track_id,
-                    error: error_message
-                }).unwrap();
+                app_handle
+                    .emit(
+                        "download-failed",
+                        DownloadFailed {
+                            track_id: track.track_id,
+                            error: error_message,
+                        },
+                    )
+                    .unwrap();
             }
             true
         }
@@ -97,7 +111,6 @@ fn handle_message(
         }
     }
 }
-
 
 // The processor function, to be run in a thread
 pub fn process_downloads(

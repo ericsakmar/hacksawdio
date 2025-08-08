@@ -27,7 +27,4 @@ diesel::table! {
 
 diesel::joinable!(tracks -> albums (album_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    albums,
-    tracks,
-);
+diesel::allow_tables_to_appear_in_same_query!(albums, tracks,);

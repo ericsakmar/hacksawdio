@@ -182,6 +182,7 @@ pub fn run() {
     let device_id = Uuid::new_v4().to_string();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             let store = app.store("store.json")?;
