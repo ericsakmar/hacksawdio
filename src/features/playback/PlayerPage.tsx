@@ -1,5 +1,6 @@
 import Logo from "../components/Logo";
 import Nav from "../Nav";
+import Player from "./Player";
 
 function PlayerPage() {
   return (
@@ -9,7 +10,7 @@ function PlayerPage() {
         <Nav />
       </header>
 
-      <h1>hello player page</h1>
+      <Player />
     </main>
   );
 }

@@ -9,7 +9,6 @@ import { useHomeHotkeys } from "./useHomeHotkeys";
 import OnlineSearchResult from "./OnlineSearchResult";
 import OfflineSearchResult from "./OfflineSearchResult";
 import { usePlayback } from "../playback/PlaybackProvider";
-import Player from "../playback/Player";
 import Nav from "../Nav";
 
 function HomePage() {
@@ -92,7 +91,7 @@ function HomePage() {
   };
 
   return (
-    <main className="container mx-auto p-4 flex flex-col h-screen">
+    <main className="container mx-auto p-4">
       <header className="relative">
         <Logo animated={isSearching || isDownloading} />
         <button
@@ -125,7 +124,7 @@ function HomePage() {
       <p className="mb-4 ml-2 opacity-70">{summary}</p>
 
       {results ? (
-        <div className="flex-grow flex-shrink overflow-y-auto mb-4">
+        <div className="mb-4">
           <ul ref={resultsRef} className="">
             {results.items.map((item) => (
               <li key={item.id} data-album-id={item.id}>
@@ -164,10 +163,6 @@ function HomePage() {
           </div>
         </div>
       ) : null}
-
-      <div className="bg-zinc-900 p-4 shadow rounded">
-        <Player />
-      </div>
     </main>
   );
 }

@@ -1,89 +1,36 @@
-import LeftArrowIcon from "../components/LeftArrowIcon";
-import PauseCircleIcon from "../components/PauseCircleIcon";
-import PlayCircleIcon from "../components/PlayCircleIcon";
-import PlayIcon from "../components/PlayIcon";
-import RightArrowIcon from "../components/RightArrowIcon";
+import Controls from "./Controls";
 import { usePlayback } from "./PlaybackProvider";
+import Seeker from "./Seeker";
 
 function Player() {
-  const {
-    album,
-    track,
-    isPlaying,
-    duration,
-    currentTime,
-    togglePlayPause,
-    handleSeek,
-    handleNextTrack,
-    hasNextTrack,
-    handlePreviousTrack,
-    hasPreviousTrack,
-  } = usePlayback();
+  const { album, track, tracks, trackIndex } = usePlayback();
 
   if (!album || !track) {
-    return <div className="player">No album selected</div>;
+    return <div className="text-center text-2xl">No album selected</div>;
   }
 
   return (
     <div>
-      <div className="flex items-center justify-center mb-2 gap-2">
-        <button
-          onClick={handlePreviousTrack}
-          disabled={!hasPreviousTrack}
-          className="disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <LeftArrowIcon />
-        </button>
+      <div className="bg-zinc-900 rounded-lg py-4 px-8 mb-8">
+        <h1 className="text-2xl text-center">{album.name}</h1>
+        <h2 className="text-zinc-400 mb-4 text-center">{album.artist}</h2>
 
-        <button
-          onClick={togglePlayPause}
-          className="disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isPlaying ? (
-            <PauseCircleIcon className="w-12 h-12 text-blue-500" />
-          ) : (
-            <PlayCircleIcon className="w-12 h-12" />
-          )}
-        </button>
+        <Controls />
 
-        <button
-          onClick={handleNextTrack}
-          disabled={!hasNextTrack}
-          className="disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RightArrowIcon />
-        </button>
+        <h2 className="text-center text-lg mt-4">
+          {trackIndex}. {track.name}
+        </h2>
+
+        <Seeker />
       </div>
 
-      <div className="text-center">
-        <h2>{track.name}</h2>
-        <p className="text-sm text-gray-500">
-          from {album.name} by {album.artist}
-        </p>
-      </div>
-
-      <div className="flex items-center justify-center space-x-2 my-2">
-        <span className="text-xs">{`${Math.floor(
-          currentTime / 60
-        )}:${Math.floor(currentTime % 60)
-          .toString()
-          .padStart(2, "0")}`}</span>
-
-        <input
-          type="range"
-          min="0"
-          max={duration}
-          value={currentTime}
-          onChange={(e) => handleSeek(parseFloat(e.target.value))}
-          step="0.01"
-        />
-
-        <span className="text-xs">{`${Math.floor(duration / 60)}:${Math.floor(
-          duration % 60
-        )
-          .toString()
-          .padStart(2, "0")}`}</span>
-      </div>
+      <ol className="list-decimal list-inside space-y-2 mt-8">
+        {tracks.map((t, index) => (
+          <li key={index} className="">
+            <div>{t.name}</div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
