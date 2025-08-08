@@ -11,6 +11,7 @@ import OfflineSearchResult from "./OfflineSearchResult";
 import { usePlayback } from "../playback/PlaybackProvider";
 import Nav from "../Nav";
 import { useNavigate } from "react-router";
+import MiniPlayer from "./MiniPlayer";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +167,10 @@ function HomePage() {
           </div>
         </div>
       ) : null}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 px-4 py-2">
+        <MiniPlayer />
+      </div>
     </main>
   );
 }

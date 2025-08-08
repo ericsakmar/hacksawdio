@@ -4,7 +4,11 @@ import PlayCircleIcon from "../components/PlayCircleIcon";
 import RightArrowIcon from "../components/RightArrowIcon";
 import { usePlayback } from "./PlaybackProvider";
 
-function Controls() {
+interface Props {
+  size?: "sm" | "md";
+}
+
+function Controls({ size = "md" }: Props) {
   const {
     isPlaying,
     togglePlayPause,
@@ -15,7 +19,7 @@ function Controls() {
   } = usePlayback();
 
   return (
-    <div className="flex items-center justify-center mb-2 gap-2">
+    <div className="flex items-center justify-center gap-2">
       <button
         onClick={handlePreviousTrack}
         disabled={!hasPreviousTrack}
@@ -29,9 +33,13 @@ function Controls() {
         className="disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isPlaying ? (
-          <PauseCircleIcon className="w-12 h-12 text-blue-500" />
+          <PauseCircleIcon
+            className={`${
+              size === "sm" ? "w-8 h-8" : "w-12 h-12"
+            } text-blue-500`}
+          />
         ) : (
-          <PlayCircleIcon className="w-12 h-12" />
+          <PlayCircleIcon className={size === "sm" ? "w-8 h-8" : "w-12 h-12"} />
         )}
       </button>
 
