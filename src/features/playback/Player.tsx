@@ -24,9 +24,12 @@ function Player() {
         <Seeker />
       </div>
 
-      <ol className="list-decimal list-inside space-y-2 mt-8">
+      <ol className="list-decimal list-inside space-y-1 my-8 mx-4">
         {tracks.map((t, index) => (
-          <li key={index} className="">
+          <li
+            key={index}
+            className={trackIndex === index ? "text-amber-300" : ""}
+          >
             <div>{t.name}</div>
           </li>
         ))}
