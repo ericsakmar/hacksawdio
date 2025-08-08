@@ -21,11 +21,12 @@ function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
       <div>{item.name}</div>
 
       <button
-        className="row-span-2 mt-1 opacity-0 peer-focus:opacity-70 focus:opacity-100 focus:outline-none cursor-pointer hover:text-red-500 focus:text-red-500"
+        className="row-span-2 opacity-0 peer-focus:opacity-70 focus:opacity-100 focus:outline-none cursor-pointer hover:text-red-500 focus:text-red-500"
         onClick={() => handleDelete(item.id)}
       >
         <DeleteIcon />
       </button>
+
       <div className="opacity-70">{item.albumArtist}</div>
     </div>
   );

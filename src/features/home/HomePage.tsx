@@ -105,7 +105,7 @@ function HomePage() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow-md gap-4 focus-within:border-amber-300"
+        className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow gap-4 focus-within:border-amber-300"
       >
         <input
           type="search"

@@ -1,13 +1,13 @@
 import { RefObject } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { SearchResults } from "./useSearch";
+import { AlbumSearchResponse } from "../auth/types";
 
 interface UseHomeHotkeysProps {
   executeSearch: (newOffset: number) => void;
   focusedAlbumId: string | null;
   limit: number;
   offset: number;
-  results: SearchResults | null;
+  results: AlbumSearchResponse | null;
   searchInputRef: RefObject<HTMLInputElement>;
   setFocusedAlbumId: (id: string) => void;
   setIsOnline: (updater: (prev: boolean) => boolean) => void;
@@ -116,7 +116,7 @@ export const useHomeHotkeys = ({
 
   // toggle online/offline mode with "cmd + o"
   useHotkeys(
-    "meta+o",
+    "ctrl+o",
     () => {
       setIsOnline((prev) => !prev);
     },
@@ -126,3 +126,4 @@ export const useHomeHotkeys = ({
     }
   );
 };
+

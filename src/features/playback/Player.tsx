@@ -11,9 +11,11 @@ function Player() {
 
   return (
     <div>
-      <div className="bg-zinc-900 rounded-lg py-4 px-8 mb-8">
-        <h1 className="text-2xl text-center">{album.name}</h1>
-        <h2 className="text-zinc-400 mb-4 text-center">{album.artist}</h2>
+      <div className="bg-zinc-900 rounded py-4 px-8 mb-8 border-zinc-600 border-dashed border-2 shadow-black shadow">
+        <h1 className="text-center">{album.name}</h1>
+        <h2 className="text-zinc-400 text-sm mb-4 text-center">
+          {album.artist}
+        </h2>
 
         <Controls />
 
