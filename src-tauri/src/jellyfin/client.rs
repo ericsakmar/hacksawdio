@@ -169,11 +169,9 @@ impl JellyfinClient {
 
         let local_albums = albums
             .filter(
-                downloaded.eq(true).and(
-                    title
-                        .like(format!("%{}%", search))
-                        .or(artist.like(format!("%{}%", search))),
-                ),
+                title
+                    .like(format!("%{}%", search))
+                    .or(artist.like(format!("%{}%", search))),
             )
             .order(title.asc())
             .limit(limit.unwrap_or(100) as i64)
@@ -188,7 +186,7 @@ impl JellyfinClient {
                 name: album.title,
                 id: album.jellyfin_id.clone(),
                 album_artist: album.artist,
-                downloaded: album.downloaded,
+                downloaded: album.path.is_some(),
             })
             .collect::<Vec<_>>();
 
@@ -216,7 +214,7 @@ impl JellyfinClient {
             .sync_album(album_id, access_token, &mut conn, user_id)
             .await?;
 
-        if album.downloaded {
+        if album.path.is_some() {
             return Ok(());
         }
 
@@ -236,7 +234,6 @@ impl JellyfinClient {
                     jellyfin_id: &track.id,
                     name: &track.name,
                     album_id: album.id,
-                    downloaded: false,
                     path: Some(download_path.to_string_lossy().to_string()),
                     track_index: track.index_number.unwrap_or(0) as i32,
                 })
@@ -252,19 +249,9 @@ impl JellyfinClient {
             );
         }
 
-        // mark tracks as downloaded
-        diesel::update(
-            crate::schema::tracks::dsl::tracks
-                .filter(crate::schema::tracks::dsl::album_id.eq(album.id)),
-        )
-        .set(crate::schema::tracks::dsl::downloaded.eq(true))
-        .execute(&mut conn)
-        .map_err(|e| JellyfinError::DbError(e))?;
-
         // mark album as downloaded
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
             .set((
-                downloaded.eq(true),
                 path.eq(dir.to_string_lossy().to_string()),
                 updated_at.eq(diesel::dsl::now),
             ))
@@ -280,67 +267,41 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        let album = self.find_album(album_id, &mut conn)?;
+        let album = self.find_album(album_id, &mut conn)?
+            .ok_or_else(|| JellyfinError::ApiError {
+                status: StatusCode::NOT_FOUND,
+                message: "Album not found".to_string(),
+            })?;
 
-        match album {
-            Some(album) => {
-                if let Some(album_path) = &album.path {
-                    let path_buf = PathBuf::from(album_path);
-                    if path_buf.exists() {
-                        fs::remove_dir_all(&path_buf).map_err(|e| {
-                            JellyfinError::GenericError(format!(
-                                "Failed to delete album dir: {}",
-                                e
-                            ))
-                        })?;
-                    }
-
-                    // remove the artis directory if it's now empty
-                    let parent_dir = path_buf.parent().ok_or_else(|| {
-                        JellyfinError::GenericError("Failed to get parent directory".to_string())
-                    })?;
-
-                    if parent_dir.exists() && parent_dir.is_dir() {
-                        let entries = fs::read_dir(parent_dir).map_err(|e| {
-                            JellyfinError::GenericError(format!("Failed to read dir: {}", e))
-                        })?;
-                        if entries.count() == 0 {
-                            fs::remove_dir(parent_dir).map_err(|e| {
-                                JellyfinError::GenericError(format!(
-                                    "Failed to delete parent dir: {}",
-                                    e
-                                ))
-                            })?;
-                        }
-                    }
-                }
-
-                // TODO probably just delete it
-
-                // mark tracks as not downloaded
-                diesel::update(
-                    crate::schema::tracks::dsl::tracks
-                        .filter(crate::schema::tracks::dsl::album_id.eq(album.id)),
-                )
-                .set(crate::schema::tracks::dsl::downloaded.eq(false))
-                .execute(&mut conn)
-                .map_err(|e| JellyfinError::DbError(e))?;
-
-                // mark album as not downloaded
-                diesel::update(albums.filter(jellyfin_id.eq(album_id)))
-                    .set((downloaded.eq(false), path.eq(None::<String>)))
-                    .execute(&mut conn)
-                    .map_err(|e| JellyfinError::DbError(e))?;
-
-                Ok(())
+        if let Some(album_path) = &album.path {
+            let path_buf = PathBuf::from(album_path);
+            if path_buf.exists() {
+                fs::remove_dir_all(&path_buf).map_err(|e| {
+                    JellyfinError::GenericError(format!("Failed to delete album dir: {}", e))
+                })?;
             }
-            None => {
-                return Err(JellyfinError::ApiError {
-                    status: StatusCode::NOT_FOUND,
-                    message: "Album not found".to_string(),
-                })
+
+            // remove the artis directory if it's now empty
+            let parent_dir = path_buf.parent().ok_or_else(|| {
+                JellyfinError::GenericError("Failed to get parent directory".to_string())
+            })?;
+
+            if parent_dir.exists() && parent_dir.is_dir() {
+                let entries = fs::read_dir(parent_dir)
+                    .map_err(|e| JellyfinError::GenericError(format!("Failed to read dir: {}", e)))?;
+                if entries.count() == 0 {
+                    fs::remove_dir(parent_dir).map_err(|e| {
+                        JellyfinError::GenericError(format!("Failed to delete parent dir: {}", e))
+                    })?;
+                }
             }
         }
+
+        diesel::delete(albums.filter(jellyfin_id.eq(album_id)))
+            .execute(&mut conn)
+            .map_err(|e| JellyfinError::DbError(e))?;
+
+        Ok(())
     }
 
     async fn search_albums_by_artist(
@@ -543,7 +504,7 @@ impl JellyfinClient {
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
         let downloaded_albums: Vec<String> = albums
-            .filter(jellyfin_id.eq_any(album_ids).and(downloaded.eq(true)))
+            .filter(jellyfin_id.eq_any(album_ids))
             .select(jellyfin_id)
             .load(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;
@@ -722,7 +683,6 @@ impl JellyfinClient {
                     artist: &album_info
                         .album_artist
                         .unwrap_or_else(|| "Unknown Artist".to_string()),
-                    downloaded: false,
                 };
 
                 diesel::insert_into(albums)
@@ -885,7 +845,6 @@ impl JellyfinClient {
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
         let local_albums = albums
-            .filter(downloaded.eq(true))
             .order(updated_at.desc())
             .limit(limit.unwrap_or(100) as i64)
             .offset(offset.unwrap_or(0) as i64)
@@ -899,7 +858,7 @@ impl JellyfinClient {
                 name: album.title,
                 id: album.jellyfin_id.clone(),
                 album_artist: album.artist,
-                downloaded: album.downloaded,
+                downloaded: album.path.is_some(),
             })
             .collect::<Vec<_>>();
 

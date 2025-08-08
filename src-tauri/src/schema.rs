@@ -6,10 +6,9 @@ diesel::table! {
         jellyfin_id -> Text,
         title -> Text,
         artist -> Text,
-        downloaded -> Bool,
         path -> Nullable<Text>,
-        created_at -> Nullable<Timestamp>,
-        updated_at -> Nullable<Timestamp>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
     }
 }
 
@@ -20,11 +19,15 @@ diesel::table! {
         name -> Text,
         album_id -> Integer,
         path -> Nullable<Text>,
-        downloaded -> Bool,
-        track_index -> Integer,
+        track_index -> Nullable<Integer>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
     }
 }
 
 diesel::joinable!(tracks -> albums (album_id));
 
-diesel::allow_tables_to_appear_in_same_query!(albums, tracks,);
+diesel::allow_tables_to_appear_in_same_query!(
+    albums,
+    tracks,
+);

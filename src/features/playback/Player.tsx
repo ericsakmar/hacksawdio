@@ -52,7 +52,7 @@ function Player() {
         <Seeker />
       </div>
 
-      <ol className="space-y-2 my-8 mx-4">
+      <ol className="space-y-2 my-8 max-w-md mx-auto">
         {tracks.map((t, index) => (
           <li
             key={index}

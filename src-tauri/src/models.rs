@@ -10,10 +10,9 @@ pub struct Album {
     pub jellyfin_id: String,
     pub title: String,
     pub artist: String,
-    pub downloaded: bool,
     pub path: Option<String>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]
@@ -22,7 +21,6 @@ pub struct NewAlbum<'a> {
     pub jellyfin_id: &'a str,
     pub title: &'a str,
     pub artist: &'a str,
-    pub downloaded: bool,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, Debug, PartialEq)]
@@ -35,8 +33,9 @@ pub struct Track {
     pub name: String,
     pub album_id: i32,
     pub path: Option<String>,
-    pub downloaded: bool,
-    pub track_index: i32,
+    pub track_index: Option<i32>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]
@@ -46,6 +45,5 @@ pub struct NewTrack<'a> {
     pub name: &'a str,
     pub album_id: i32,
     pub path: Option<String>,
-    pub downloaded: bool,
     pub track_index: i32,
 }
