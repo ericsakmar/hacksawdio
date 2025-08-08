@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import Logo from "./Logo";
+import Logo from "../components/Logo";
 import { useDownloadStatus } from "./useDownloadStatus";
 import { useSearch } from "./useSearch";
 import OnlineIcon from "../components/OnlineIcon";
@@ -10,6 +10,7 @@ import OnlineSearchResult from "./OnlineSearchResult";
 import OfflineSearchResult from "./OfflineSearchResult";
 import { usePlayback } from "../playback/PlaybackProvider";
 import Player from "../playback/Player";
+import Nav from "../Nav";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +101,7 @@ function HomePage() {
         >
           {isOnline ? <OnlineIcon /> : <OfflineIcon />}
         </button>
+        <Nav />
       </header>
 
       <form
