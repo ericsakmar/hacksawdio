@@ -34,8 +34,6 @@ pub struct Track {
     pub album_id: i32,
     pub path: Option<String>,
     pub track_index: Option<i32>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]

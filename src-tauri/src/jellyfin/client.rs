@@ -267,11 +267,12 @@ impl JellyfinClient {
             .get()
             .map_err(|e| JellyfinError::DbPoolError(e))?;
 
-        let album = self.find_album(album_id, &mut conn)?
-            .ok_or_else(|| JellyfinError::ApiError {
-                status: StatusCode::NOT_FOUND,
-                message: "Album not found".to_string(),
-            })?;
+        let album =
+            self.find_album(album_id, &mut conn)?
+                .ok_or_else(|| JellyfinError::ApiError {
+                    status: StatusCode::NOT_FOUND,
+                    message: "Album not found".to_string(),
+                })?;
 
         if let Some(album_path) = &album.path {
             let path_buf = PathBuf::from(album_path);
@@ -287,8 +288,9 @@ impl JellyfinClient {
             })?;
 
             if parent_dir.exists() && parent_dir.is_dir() {
-                let entries = fs::read_dir(parent_dir)
-                    .map_err(|e| JellyfinError::GenericError(format!("Failed to read dir: {}", e)))?;
+                let entries = fs::read_dir(parent_dir).map_err(|e| {
+                    JellyfinError::GenericError(format!("Failed to read dir: {}", e))
+                })?;
                 if entries.count() == 0 {
                     fs::remove_dir(parent_dir).map_err(|e| {
                         JellyfinError::GenericError(format!("Failed to delete parent dir: {}", e))
@@ -297,6 +299,15 @@ impl JellyfinClient {
             }
         }
 
+        // delete tracks first
+        diesel::delete(
+            crate::schema::tracks::dsl::tracks
+                .filter(crate::schema::tracks::dsl::album_id.eq(album.id)),
+        )
+        .execute(&mut conn)
+        .map_err(|e| JellyfinError::DbError(e))?;
+
+        // then delete the album
         diesel::delete(albums.filter(jellyfin_id.eq(album_id)))
             .execute(&mut conn)
             .map_err(|e| JellyfinError::DbError(e))?;

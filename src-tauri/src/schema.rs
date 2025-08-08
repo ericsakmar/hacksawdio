@@ -20,8 +20,6 @@ diesel::table! {
         album_id -> Integer,
         path -> Nullable<Text>,
         track_index -> Nullable<Integer>,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
     }
 }
 
