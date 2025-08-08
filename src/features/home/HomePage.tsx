@@ -45,18 +45,16 @@ function HomePage() {
     setIsOnline,
   });
 
-  // keeps focus between searches
+  // keeps focus between searches and sets initial focus
   useEffect(() => {
     if (results && results.items.length > 0) {
-      if (focusedAlbumId) {
-        setFocusedAlbumId(focusedAlbumId);
-      } else {
+      if (focusedAlbumId === null) {
         setFocusedAlbumId(results.items[0].id);
       }
     } else {
       setFocusedAlbumId(null);
     }
-  }, [results, focusedAlbumId]);
+  }, [results]);
 
   // sets the focus
   useEffect(() => {
@@ -72,6 +70,7 @@ function HomePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFocusedAlbumId(null);
     executeSearch(0);
   };
 
