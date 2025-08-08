@@ -43,11 +43,13 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     if (album && album.tracks && album.tracks.length > 0) {
       setTrackIndex(0);
+      setIsPlaying(true);
     } else {
       setTrackIndex(null);
     }
   }, [album]);
 
+  // sets the track when trackIndex changes
   useEffect(() => {
     if (trackIndex !== null && album && album.tracks) {
       setTrack(album.tracks[trackIndex]);
@@ -61,6 +63,8 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
     if (!track) {
       return;
     }
+
+    setCurrentTime(0);
 
     const src = convertFileSrc(track.playbackUrl);
     const audio = new Audio(src);
@@ -81,15 +85,18 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
 
-    // Clean up event listeners when component unmounts
+    if (isPlaying) {
+      audio.play();
+    }
+
     return () => {
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("ended", handleEnded);
-      audio.pause(); // Stop audio if still playing
-      audio.src = ""; // Clear src to release resources
+      audio.pause();
+      audio.src = "";
     };
   }, [track]);
 
