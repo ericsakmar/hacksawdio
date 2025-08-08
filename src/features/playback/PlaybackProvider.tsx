@@ -23,6 +23,7 @@ type PlaybackContextType = {
   hasPreviousTrack: boolean;
   tracks: AlbumTrack[];
   trackIndex: number | null;
+  setTrackIndex: (index: number | null) => void;
 };
 
 const PlaybackContext = createContext<PlaybackContextType | undefined>(
@@ -158,6 +159,7 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
         hasPreviousTrack,
         tracks: album?.tracks || [],
         trackIndex,
+        setTrackIndex,
       }}
     >
       {children}

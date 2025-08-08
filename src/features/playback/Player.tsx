@@ -1,9 +1,35 @@
+import { useHotkeys } from "react-hotkeys-hook";
 import Controls from "./Controls";
 import { usePlayback } from "./PlaybackProvider";
 import Seeker from "./Seeker";
 
 function Player() {
-  const { album, track, tracks, trackIndex } = usePlayback();
+  const { album, track, tracks, trackIndex, setTrackIndex, togglePlayPause } =
+    usePlayback();
+
+  // j to select the next track
+  useHotkeys("j", () => {
+    if (trackIndex !== null && trackIndex < tracks.length - 1) {
+      setTrackIndex(trackIndex + 1);
+    }
+  });
+
+  // k to select the previous track
+  useHotkeys("k", () => {
+    if (trackIndex !== null && trackIndex > 0) {
+      setTrackIndex(trackIndex - 1);
+    }
+  });
+
+  // space to toggle play/pause
+  useHotkeys("space", (event) => {
+    event.preventDefault();
+    togglePlayPause();
+  });
+
+  const handleTrackSelect = (index: number) => {
+    setTrackIndex(index);
+  };
 
   if (!album || !track) {
     return <div className="text-center text-2xl">No album selected</div>;
@@ -26,13 +52,18 @@ function Player() {
         <Seeker />
       </div>
 
-      <ol className="list-decimal list-inside space-y-1 my-8 mx-4">
+      <ol className="space-y-2 my-8 mx-4">
         {tracks.map((t, index) => (
           <li
             key={index}
             className={trackIndex === index ? "text-amber-300" : ""}
           >
-            <div>{t.name}</div>
+            <button
+              onClick={() => handleTrackSelect(index)}
+              className="inline-block text-left"
+            >
+              {index + 1}. {t.name}
+            </button>
           </li>
         ))}
       </ol>
