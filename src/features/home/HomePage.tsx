@@ -19,7 +19,7 @@ function HomePage() {
   const isDownloading = useDownloadStatus();
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
-  const { setAlbum } = usePlayback();
+  const { setAlbum, album } = usePlayback();
   const navigate = useNavigate();
 
   const {
@@ -77,15 +77,20 @@ function HomePage() {
 
   const handleDownload = async (id: string) => {
     await invoke("download_album", { albumId: id });
-    setDownloaded(id, true);
+    setDownloaded(id, true, false);
     setFocusedAlbumId(id);
   };
 
-  // TODO online should keep it in the list, offline should remove it
   const handleDelete = async (id: string) => {
     await invoke("delete_album", { albumId: id });
-    setDownloaded(id, false);
-    setFocusedAlbumId(id);
+
+    if (isOnline) {
+      setDownloaded(id, false, false);
+      setFocusedAlbumId(id);
+    } else {
+      setDownloaded(id, false, true);
+      setFocusedAlbumId(null);
+    }
   };
 
   const handleOnlineToggle = () => {
@@ -172,9 +177,11 @@ function HomePage() {
         </div>
       ) : null}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 px-4 py-2">
-        <MiniPlayer />
-      </div>
+      {album ? (
+        <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 px-4 py-2">
+          <MiniPlayer />
+        </div>
+      ) : null}
     </main>
   );
 }

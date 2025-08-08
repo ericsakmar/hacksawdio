@@ -52,19 +52,32 @@ export function useSearch(isOnline: boolean) {
     setIsSearching(false);
   };
 
-  const setDownloaded = (id: string, downloaded: boolean) => {
-    setResults((prev) => {
-      if (!prev) {
-        return prev;
-      }
+  const setDownloaded = (id: string, downloaded: boolean, remove: boolean) => {
+    if (remove) {
+      setResults((prev) => {
+        if (!prev) {
+          return prev;
+        }
 
-      return {
-        ...prev,
-        items: prev.items.map((item) =>
-          item.id === id ? { ...item, downloaded } : item
-        ),
-      };
-    });
+        return {
+          ...prev,
+          items: prev.items.filter((item) => item.id !== id),
+        };
+      });
+    } else {
+      setResults((prev) => {
+        if (!prev) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          items: prev.items.map((item) =>
+            item.id === id ? { ...item, downloaded } : item
+          ),
+        };
+      });
+    }
   };
 
   return {

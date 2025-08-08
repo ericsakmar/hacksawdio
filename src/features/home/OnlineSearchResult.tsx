@@ -10,7 +10,7 @@ interface Props {
 
 function OnlineSearchResult({ item, handleDelete, handleDownload }: Props) {
   return (
-    <div className="grid grid-cols-[auto_1fr] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2">
+    <div className="grid grid-cols-[auto_1fr] gap-x-2 items-start hover:bg-zinc-900 focus-within:bg-zinc-900 rounded p-2">
       {item.downloaded ? (
         <button
           className="row-span-2 mt-1 focus:outline-none text-green-300 cursor-pointer"

@@ -1,7 +1,8 @@
-# Tauri + React + Typescript
+# Hacksawdio
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+An offline-first, keyboard-driven, album-oriented, no-frills music client for Jellyfin,
+created with Tauri, Typescript, and Rust.
 
-## Recommended IDE Setup
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+![screenshot showing offline search results](/screenshots/results-offline.png?raw=true "Offline Search Results")
+![screenshot showing online search results](/screenshots/results-online.png?raw=true "Online Search Results")
+![screenshot showing music player](/screenshots/player.png?raw=true "Player")

@@ -10,7 +10,7 @@ interface Props {
 
 function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
   return (
-    <div className="grid grid-cols-[auto_1fr_auto] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2">
+    <div className="group grid grid-cols-[auto_1fr_auto] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2 hover:bg-zinc-900">
       <button
         className="peer row-span-2 mt-1 opacity-70 focus:opacity-100 focus:outline-none focus:text-green-300 cursor-pointer"
         onClick={() => handlePlay(item.id)}
@@ -21,7 +21,7 @@ function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
       <div>{item.name}</div>
 
       <button
-        className="row-span-2 opacity-0 peer-focus:opacity-70 focus:opacity-100 focus:outline-none cursor-pointer hover:text-red-500 focus:text-red-500"
+        className="row-span-2 opacity-0 group-hover:opacity-70 peer-focus:opacity-70 focus:opacity-100 focus:outline-none cursor-pointer hover:text-red-500 focus:text-red-500"
         onClick={() => handleDelete(item.id)}
       >
         <DeleteIcon />
