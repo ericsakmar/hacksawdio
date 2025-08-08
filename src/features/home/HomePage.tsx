@@ -10,6 +10,7 @@ import OnlineSearchResult from "./OnlineSearchResult";
 import OfflineSearchResult from "./OfflineSearchResult";
 import { usePlayback } from "../playback/PlaybackProvider";
 import Nav from "../Nav";
+import { useNavigate } from "react-router";
 
 function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -18,6 +19,7 @@ function HomePage() {
   const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const { setAlbum } = usePlayback();
+  const navigate = useNavigate();
 
   const {
     executeSearch,
@@ -88,6 +90,7 @@ function HomePage() {
   const handlePlay = async (id: string) => {
     const album = await invoke<Album>("get_album_info", { albumId: id });
     setAlbum(album);
+    navigate("/player");
   };
 
   return (

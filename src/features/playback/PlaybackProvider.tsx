@@ -38,12 +38,13 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [autoPlay, setAutoPlay] = useState(false);
 
   // selects first track when album is set
   useEffect(() => {
     if (album && album.tracks && album.tracks.length > 0) {
       setTrackIndex(0);
-      setIsPlaying(true);
+      setAutoPlay(true);
     } else {
       setTrackIndex(null);
     }
@@ -70,13 +71,28 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
     const audio = new Audio(src);
     audioRef.current = audio;
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const handleLoadedMetadata = () => setDuration(audio.duration);
-    const handleEnded = () => {
-      // or move to the next track?
+    const handlePlay = () => {
+      setIsPlaying(true);
+    };
+
+    const handlePause = () => {
       setIsPlaying(false);
+    };
+
+    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+
+    const handleLoadedMetadata = () => setDuration(audio.duration);
+
+    const handleEnded = () => {
+      if (
+        trackIndex !== null &&
+        trackIndex < (album?.tracks?.length ?? 0) - 1
+      ) {
+        handleNextTrack();
+      } else {
+        setIsPlaying(false);
+        setAutoPlay(false);
+      }
     };
 
     audio.addEventListener("play", handlePlay);
@@ -85,7 +101,7 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
 
-    if (isPlaying) {
+    if (autoPlay) {
       audio.play();
     }
 
@@ -108,8 +124,10 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
 
     if (isPlaying) {
       audio.pause();
+      setAutoPlay(false);
     } else {
       audio.play();
+      setAutoPlay(true);
     }
   };
 
