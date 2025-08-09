@@ -1,13 +1,12 @@
 import { RefObject } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { AlbumSearchResponse } from "../auth/types";
+import { ResultsState } from "./useSearch";
 
 interface UseSearchHotkeysProps {
   executeSearch: (newOffset: number) => void;
-  focusedAlbumId: string | null;
   limit: number;
   offset: number;
-  results: AlbumSearchResponse | null;
+  results: ResultsState | null;
   searchInputRef: RefObject<HTMLInputElement>;
   setFocusedAlbumId: (id: string) => void;
   setIsOnline: (updater: (prev: boolean) => boolean) => void;
@@ -15,7 +14,6 @@ interface UseSearchHotkeysProps {
 
 export const useSearchHotkeys = ({
   executeSearch,
-  focusedAlbumId,
   limit,
   offset,
   results,
@@ -55,7 +53,7 @@ export const useSearchHotkeys = ({
       }
 
       const currentIndex = results.items.findIndex(
-        (item) => item.id === focusedAlbumId
+        (item) => item.id === results.focusedAlbumId
       );
 
       if (currentIndex < results.items.length - 1) {
@@ -76,7 +74,7 @@ export const useSearchHotkeys = ({
       }
 
       const currentIndex = results.items.findIndex(
-        (item) => item.id === focusedAlbumId
+        (item) => item.id === results.focusedAlbumId
       );
 
       if (currentIndex > 0) {

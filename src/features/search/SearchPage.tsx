@@ -17,7 +17,6 @@ function SearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
-  const [focusedAlbumId, setFocusedAlbumId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const { setAlbum, album } = usePlayback();
   const navigate = useNavigate();
@@ -32,11 +31,11 @@ function SearchPage() {
     setDownloaded,
     setSearch,
     summary,
+    setFocusedAlbumId,
   } = useSearch(isOnline);
 
   useSearchHotkeys({
     executeSearch,
-    focusedAlbumId,
     limit,
     offset,
     results,
@@ -45,18 +44,8 @@ function SearchPage() {
     setIsOnline,
   });
 
-  // keeps focus between searches and sets initial focus
-  useEffect(() => {
-    if (results && results.items.length > 0) {
-      if (focusedAlbumId === null) {
-        setFocusedAlbumId(results.items[0].id);
-      }
-    } else {
-      setFocusedAlbumId(null);
-    }
-  }, [results]);
-
   // sets the focus
+  const focusedAlbumId = results?.focusedAlbumId || null;
   useEffect(() => {
     if (focusedAlbumId && resultsRef.current) {
       const liElement = resultsRef.current.querySelector(

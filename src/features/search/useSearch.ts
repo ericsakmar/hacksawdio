@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { AlbumSearchResponse } from "../auth/types";
 import { invoke } from "@tauri-apps/api/core";
 
+export type ResultsState = AlbumSearchResponse & {
+  focusedAlbumId: string | null;
+};
+
 const limit = 50;
 
 function getSummary(
@@ -27,7 +31,7 @@ function getSummary(
 export function useSearch(isOnline: boolean) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
-  const [results, setResults] = useState<AlbumSearchResponse | null>(null);
+  const [results, setResults] = useState<ResultsState | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [summary, setSummary] = useState("");
 
@@ -47,7 +51,10 @@ export function useSearch(isOnline: boolean) {
     });
 
     setSummary(getSummary(search, res.totalRecordCount, limit, newOffset));
-    setResults(res);
+    setResults({
+      ...res,
+      focusedAlbumId: res.items.length > 0 ? res.items[0].id : null,
+    });
     setOffset(newOffset);
     setIsSearching(false);
   };
@@ -80,6 +87,19 @@ export function useSearch(isOnline: boolean) {
     }
   };
 
+  const setFocusedAlbumId = (id: string | null) => {
+    setResults((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        focusedAlbumId: id,
+      };
+    });
+  };
+
   return {
     search,
     setSearch,
@@ -91,5 +111,6 @@ export function useSearch(isOnline: boolean) {
     setOffset,
     limit,
     summary,
+    setFocusedAlbumId,
   };
 }
