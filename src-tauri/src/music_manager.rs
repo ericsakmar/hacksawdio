@@ -1,49 +1,32 @@
+use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::errors::JellyfinError;
 use crate::jellyfin::models::{
     AlbumInfoResponse, AlbumSearchResponse, AlbumSearchResponseItem, AlbumTrackResponse,
-    AuthRequest, AuthResponse, JellyfinItem, JellyfinItemsResponse,
+    AuthResponse, JellyfinItem, JellyfinItemsResponse,
 };
 use crate::models::{Album, NewTrack};
 use crate::repository::Repository;
-use futures::StreamExt;
-use reqwest::{Client, StatusCode};
+use reqwest::StatusCode;
 use sanitize_filename::sanitize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
-use url::Url;
 
 pub struct MusicManager {
-    base_url: String,
-    http_client: Client,
-    app_name: String,
-    device_name: String,
-    device_id: String,
-    app_version: String,
+    jellyfin_client: JellyfinClient,
     repository: Repository,
     download_queue: crate::download_queue::DownloadQueue,
 }
 
 impl MusicManager {
     pub fn new(
-        base_url: String,
-        app_name: String,
-        device_name: String,
-        device_id: String,
-        app_version: String,
+        jellyfin_client: JellyfinClient,
         repository: Repository,
         download_queue: crate::download_queue::DownloadQueue,
     ) -> Self {
         Self {
-            base_url,
-            http_client: Client::new(),
-            app_name,
-            device_name,
-            device_id,
-            app_version,
+            jellyfin_client,
             repository,
             download_queue,
         }
@@ -54,42 +37,9 @@ impl MusicManager {
         username: &str,
         password: &str,
     ) -> Result<AuthResponse, JellyfinError> {
-        let auth_url = format!("{}/Users/AuthenticateByName", self.base_url);
-
-        let request_body = AuthRequest {
-            username: username.to_string(),
-            pw: password.to_string(),
-        };
-
-        let response = self
-            .http_client
-            .post(&auth_url)
-            .header(
-                "Authorization",
-                format!(
-                    "MediaBrowser Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
-                    self.app_name, self.device_name, self.device_id, self.app_version,
-                ),
-            )
-            .json(&request_body)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            Ok(response.json::<AuthResponse>().await?)
-        } else {
-            let status = response.status();
-
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error message".to_string());
-
-            Err(JellyfinError::ApiError {
-                status,
-                message: error_text,
-            })
-        }
+        self.jellyfin_client
+            .authenticate_user_by_name(username, password)
+            .await
     }
 
     pub async fn search_albums(
@@ -103,6 +53,7 @@ impl MusicManager {
         // return recents if search is empty
         if search.is_empty() {
             let recents = self
+                .jellyfin_client
                 .get_recents(access_token, limit, offset, user_id)
                 .await?;
 
@@ -110,6 +61,7 @@ impl MusicManager {
         }
 
         let album_results = self
+            .jellyfin_client
             .search_jellyfin(
                 Some(search),
                 "MusicAlbum",
@@ -199,7 +151,10 @@ impl MusicManager {
         let dir = self.create_album_dir(app_handle, &album.artist, &album.title)?;
 
         // get the tracks for the album
-        let tracks = self.get_tracks(album_id, access_token).await?;
+        let tracks = self
+            .jellyfin_client
+            .get_tracks(album_id, access_token)
+            .await?;
         let total_tracks = tracks.items.len();
 
         for track in tracks.items {
@@ -283,6 +238,7 @@ impl MusicManager {
         user_id: Option<&str>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let artist_results = self
+            .jellyfin_client
             .search_jellyfin(
                 Some(search),
                 "MusicArtist",
@@ -311,6 +267,7 @@ impl MusicManager {
         }
 
         let artist_album_results = self
+            .jellyfin_client
             .search_jellyfin(
                 None,
                 "MusicAlbum",
@@ -324,146 +281,6 @@ impl MusicManager {
             .await;
 
         artist_album_results
-    }
-
-    async fn search_jellyfin(
-        &self,
-        search: Option<&str>,
-        item_types: &str,
-        access_token: &str,
-        sort_by: Option<&str>,
-        limit: Option<u32>,
-        offset: Option<u32>,
-        artist_ids: Option<Vec<String>>,
-        user_id: Option<&str>,
-    ) -> Result<JellyfinItemsResponse, JellyfinError> {
-        let limit = limit.unwrap_or(100);
-        let offset = offset.unwrap_or(0);
-
-        let mut url = Url::parse(&self.base_url)
-            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
-
-        if let Some(user_id) = user_id {
-            url.set_path(&format!("/Users/{}/Items", user_id));
-        } else {
-            url.set_path("/Items");
-        }
-
-        url.query_pairs_mut()
-            .append_pair("includeItemTypes", item_types)
-            .append_pair("recursive", "true")
-            .append_pair("limit", &limit.to_string())
-            .append_pair("startIndex", &offset.to_string())
-            .append_pair("sortBy", "Album,AlbumArtist");
-
-        if let Some(search_term) = search {
-            url.query_pairs_mut().append_pair("searchTerm", search_term);
-        }
-
-        if let Some(artist_ids) = artist_ids {
-            let artist_ids_str = artist_ids.join(",");
-            url.query_pairs_mut()
-                .append_pair("artistIds", &artist_ids_str);
-        }
-
-        if let Some(sort_by) = sort_by {
-            url.query_pairs_mut().append_pair("sortBy", sort_by);
-        }
-
-        let response =
-            self.http_client.get(&url.to_string())
-                .header(
-                    "Authorization",
-                    format!(
-                        "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
-                        access_token,
-                        self.app_name,
-                        self.device_name,
-                        self.device_id,
-                        self.app_version,
-                    ),
-                )
-                .send()
-                .await?;
-
-        if response.status().is_success() {
-            let items = response.json::<JellyfinItemsResponse>().await?;
-            Ok(items)
-        } else {
-            let status = response.status();
-
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error message".to_string());
-
-            Err(JellyfinError::ApiError {
-                status,
-                message: error_text,
-            })
-        }
-    }
-
-    async fn get_jellyfin_item(
-        &self,
-        item_id: &str,
-        access_token: &str,
-        user_id: Option<&str>,
-    ) -> Result<JellyfinItem, JellyfinError> {
-        let mut url = Url::parse(&self.base_url)
-            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
-
-        if let Some(user_id) = user_id {
-            url.set_path(&format!("/Users/{}/Items", user_id));
-        } else {
-            url.set_path("/Items");
-        }
-
-        url.query_pairs_mut()
-            .append_pair("ids", item_id)
-            .append_pair("recursive", "true");
-
-        let response =
-            self.http_client.get(url.to_string())
-                .header(
-                    "Authorization",
-                    format!(
-                        "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
-                        access_token,
-                        self.app_name,
-                        self.device_name,
-                        self.device_id,
-                        self.app_version,
-                    ),
-                )
-                .send()
-                .await?;
-
-        if response.status().is_success() {
-            let mut items = response.json::<JellyfinItemsResponse>().await?;
-            let first = items.items.drain(..).next();
-
-            if let Some(item) = first {
-                Ok(item)
-            } else {
-                Err(JellyfinError::ApiError {
-                    status: StatusCode::NOT_FOUND,
-                    message: "Item not found".to_string(),
-                })
-            }
-        } else {
-            let status = response.status();
-
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error message".to_string());
-
-            Err(JellyfinError::ApiError {
-                status,
-                message: error_text,
-            })
-        }
     }
 
     async fn add_downloaded_state(
@@ -502,103 +319,15 @@ impl MusicManager {
         })
     }
 
-    async fn get_tracks(
-        &self,
-        album_id: &str,
-        access_token: &str,
-    ) -> Result<JellyfinItemsResponse, JellyfinError> {
-        // http://hacksaw-house:8097/Items?parentId=53c1a2a3a8a4b8e1a69fc391081d198f&recursive=true&sortBy=IndexNumber
-        let url = format!(
-            "{}/Items?parentId={}&recursive=true&sortBy=IndexNumber",
-            self.base_url, album_id,
-        );
-
-        let response =
-            self.http_client.get(&url)
-                .header(
-                    "Authorization",
-                    format!(
-                        "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
-                        access_token,
-                        self.app_name,
-                        self.device_name,
-                        self.device_id,
-                        self.app_version,
-                    ),
-                )
-                .send()
-                .await?;
-
-        if response.status().is_success() {
-            let items = response.json::<JellyfinItemsResponse>().await?;
-            Ok(items)
-        } else {
-            let status = response.status();
-
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error message".to_string());
-
-            Err(JellyfinError::ApiError {
-                status,
-                message: error_text,
-            })
-        }
-    }
-
     pub async fn download_track(
         &self,
         track_id: &str,
         download_path: &str,
         access_token: &str,
     ) -> Result<(), JellyfinError> {
-        let url = format!("{}/Items/{}/Download", self.base_url, track_id);
-
-        let response =
-            self.http_client.get(&url)
-                .header(
-                    "Authorization",
-                    format!(
-                        "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
-                        access_token,
-                        self.app_name,
-                        self.device_name,
-                        self.device_id,
-                        self.app_version,
-                    ),
-                )
-                .send()
-                .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_else(|_| "N/A".to_string());
-            return Err(JellyfinError::ApiError {
-                status,
-                message: body,
-            });
-        }
-
-        let mut dest_file = File::create(&download_path)
+        self.jellyfin_client
+            .download_track(track_id, download_path, access_token)
             .await
-            .map_err(|e| JellyfinError::GenericError(format!("Failed to create file: {}", e)))?;
-
-        let mut stream = response.bytes_stream();
-
-        while let Some(chunk_result) = stream.next().await {
-            let chunk = chunk_result?;
-            dest_file.write_all(&chunk).await.map_err(|e| {
-                JellyfinError::GenericError(format!("Failed to write chunk: {}", e))
-            })?;
-        }
-
-        dest_file
-            .flush()
-            .await
-            .map_err(|e| JellyfinError::GenericError(format!("Failed to flush file: {}", e)))?;
-
-        Ok(())
     }
 
     pub async fn get_album_info(&self, album_id: &str) -> Result<AlbumInfoResponse, JellyfinError> {
@@ -643,6 +372,7 @@ impl MusicManager {
 
         // album does not exist, we will insert it
         let album_info = self
+            .jellyfin_client
             .get_jellyfin_item(album_id, access_token, user_id)
             .await?;
 
@@ -713,69 +443,6 @@ impl MusicManager {
         }
 
         unique_items.into_iter().collect()
-    }
-
-    async fn get_recents(
-        &self,
-        access_token: &str,
-        limit: Option<u32>,
-        offset: Option<u32>,
-        user_id: Option<&str>,
-    ) -> Result<JellyfinItemsResponse, JellyfinError> {
-        let limit = limit.unwrap_or(100);
-        let offset = offset.unwrap_or(0);
-
-        let mut url = Url::parse(&self.base_url)
-            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
-
-        if let Some(user_id) = user_id {
-            url.set_path(&format!("/Users/{}/Items/Latest", user_id));
-        } else {
-            url.set_path("/Items/Latest");
-        }
-
-        url.query_pairs_mut()
-            .append_pair("includeItemTypes", "MusicAlbum")
-            .append_pair("limit", &limit.to_string())
-            .append_pair("startIndex", &offset.to_string());
-
-        let response =
-            self.http_client.get(&url.to_string())
-                .header(
-                    "Authorization",
-                    format!(
-                        "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
-                        access_token,
-                        self.app_name,
-                        self.device_name,
-                        self.device_id,
-                        self.app_version,
-                    ),
-                )
-                .send()
-                .await?;
-
-        if response.status().is_success() {
-            let items = response.json::<Vec<JellyfinItem>>().await?;
-
-            Ok(JellyfinItemsResponse {
-                total_record_count: items.len() as u32,
-                start_index: offset,
-                items,
-            })
-        } else {
-            let status = response.status();
-
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error message".to_string());
-
-            Err(JellyfinError::ApiError {
-                status,
-                message: error_text,
-            })
-        }
     }
 
     async fn get_recents_offline(

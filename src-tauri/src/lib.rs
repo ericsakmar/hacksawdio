@@ -8,6 +8,7 @@ use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
 use crate::download_queue::{process_downloads, DownloadQueue};
+use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::models::{
     AlbumInfoResponse, AlbumSearchResponse, AuthResponse, SessionResponse,
 };
@@ -203,6 +204,7 @@ pub fn run() {
                     .and_then(|v| v.as_str().map(String::from)),
             ));
 
+            // db/repository initialization
             let app_handle = app.handle();
 
             let app_data_path = app_handle.path().app_data_dir()?;
@@ -217,14 +219,19 @@ pub fn run() {
             let db_pool = db::establish_connection();
             let repository = Repository::new(db_pool);
 
-            let (download_queue, download_receiver) = DownloadQueue::new();
-
-            let music_manager = Arc::new(MusicManager::new(
+            // Jellyfin client initialization
+            let jellyfin_client = JellyfinClient::new(
                 "http://192.168.1.153:8097".to_string(),
                 "Hacksawdio".to_string(),
                 "Hacksawdio Desktop Client".to_string(),
                 device_id,
                 "0.0.1".to_string(),
+            );
+
+            let (download_queue, download_receiver) = DownloadQueue::new();
+
+            let music_manager = Arc::new(MusicManager::new(
+                jellyfin_client,
                 repository,
                 download_queue.clone(),
             ));
