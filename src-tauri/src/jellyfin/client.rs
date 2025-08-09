@@ -4,9 +4,8 @@ use super::models::{
     JellyfinItemsResponse,
 };
 use crate::jellyfin::models::{AlbumInfoResponse, AlbumTrackResponse};
-use crate::models::{Album, NewAlbum};
-use crate::schema::albums::dsl::*;
-use diesel::prelude::*;
+use crate::models::{Album, NewTrack};
+use crate::repository::Repository;
 use futures::StreamExt;
 use reqwest::{Client, StatusCode};
 use sanitize_filename::sanitize;
@@ -25,7 +24,7 @@ pub struct JellyfinClient {
     device_name: String,
     device_id: String,
     app_version: String,
-    db_pool: crate::db::Pool,
+    repository: Repository,
     download_queue: crate::download_queue::DownloadQueue,
 }
 
@@ -36,7 +35,7 @@ impl JellyfinClient {
         device_name: String,
         device_id: String,
         app_version: String,
-        db_pool: crate::db::Pool,
+        repository: Repository,
         download_queue: crate::download_queue::DownloadQueue,
     ) -> Self {
         Self {
@@ -46,7 +45,7 @@ impl JellyfinClient {
             device_name,
             device_id,
             app_version,
-            db_pool,
+            repository,
             download_queue,
         }
     }
@@ -162,23 +161,10 @@ impl JellyfinClient {
             return self.get_recents_offline(limit, offset).await;
         }
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
-        let local_albums = albums
-            .filter(
-                title
-                    .like(format!("%{}%", search))
-                    .or(artist.like(format!("%{}%", search))),
-            )
-            .order(title.asc())
-            .limit(limit.unwrap_or(100) as i64)
-            .offset(offset.unwrap_or(0) as i64)
-            .select(Album::as_select())
-            .load::<Album>(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        let local_albums = self
+            .repository
+            .search_albums_offline(search, limit, offset)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
         let items = local_albums
             .into_iter()
@@ -204,15 +190,8 @@ impl JellyfinClient {
         access_token: &str,
         user_id: Option<&str>,
     ) -> Result<(), JellyfinError> {
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
         // get the album
-        let album = self
-            .sync_album(album_id, access_token, &mut conn, user_id)
-            .await?;
+        let album = self.sync_album(album_id, access_token, user_id).await?;
 
         if album.path.is_some() {
             return Ok(());
@@ -229,16 +208,15 @@ impl JellyfinClient {
             let track_filename = self.generate_track_name(&track, total_tracks);
             let download_path = dir.join(&track_filename);
 
-            diesel::insert_into(crate::schema::tracks::dsl::tracks)
-                .values(crate::models::NewTrack {
+            self.repository
+                .insert_track(&NewTrack {
                     jellyfin_id: &track.id,
                     name: &track.name,
                     album_id: album.id,
                     path: Some(download_path.to_string_lossy().to_string()),
                     track_index: track.index_number.unwrap_or(0) as i32,
                 })
-                .execute(&mut conn)
-                .map_err(|e| JellyfinError::DbError(e))?;
+                .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
             self.download_queue.add_track(
                 crate::download_queue::Track {
@@ -250,29 +228,22 @@ impl JellyfinClient {
         }
 
         // mark album as downloaded
-        diesel::update(albums.filter(jellyfin_id.eq(album_id)))
-            .set((
-                path.eq(dir.to_string_lossy().to_string()),
-                updated_at.eq(diesel::dsl::now),
-            ))
-            .execute(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        self.repository
+            .mark_album_as_downloaded(album_id, &dir.to_string_lossy())
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
         Ok(())
     }
 
     pub async fn delete_album(&self, album_id: &str) -> Result<(), JellyfinError> {
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
-        let album =
-            self.find_album(album_id, &mut conn)?
-                .ok_or_else(|| JellyfinError::ApiError {
-                    status: StatusCode::NOT_FOUND,
-                    message: "Album not found".to_string(),
-                })?;
+        let album = self
+            .repository
+            .find_album(album_id)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?
+            .ok_or_else(|| JellyfinError::ApiError {
+                status: StatusCode::NOT_FOUND,
+                message: "Album not found".to_string(),
+            })?;
 
         if let Some(album_path) = &album.path {
             let path_buf = PathBuf::from(album_path);
@@ -299,18 +270,9 @@ impl JellyfinClient {
             }
         }
 
-        // delete tracks first
-        diesel::delete(
-            crate::schema::tracks::dsl::tracks
-                .filter(crate::schema::tracks::dsl::album_id.eq(album.id)),
-        )
-        .execute(&mut conn)
-        .map_err(|e| JellyfinError::DbError(e))?;
-
-        // then delete the album
-        diesel::delete(albums.filter(jellyfin_id.eq(album_id)))
-            .execute(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        self.repository
+            .delete_album_and_tracks(&album)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
         Ok(())
     }
@@ -509,16 +471,10 @@ impl JellyfinClient {
             .map(|item| item.id.clone())
             .collect::<Vec<_>>();
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
-        let downloaded_albums: Vec<String> = albums
-            .filter(jellyfin_id.eq_any(album_ids))
-            .select(jellyfin_id)
-            .load(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        let downloaded_albums = self
+            .repository
+            .get_downloaded_album_ids(album_ids)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
         let items = res
             .items
@@ -635,25 +591,14 @@ impl JellyfinClient {
     }
 
     pub async fn get_album_info(&self, album_id: &str) -> Result<AlbumInfoResponse, JellyfinError> {
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
-        let local_album =
-            self.find_album(album_id, &mut conn)?
-                .ok_or_else(|| JellyfinError::ApiError {
-                    status: StatusCode::NOT_FOUND,
-                    message: "Album not found".to_string(),
-                })?;
-
-        // get the tracks for the album
-        let local_tracks = crate::schema::tracks::dsl::tracks
-            .filter(crate::schema::tracks::dsl::album_id.eq(local_album.id))
-            .select(crate::models::Track::as_select())
-            .order(crate::schema::tracks::dsl::track_index.asc())
-            .load::<crate::models::Track>(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        let (local_album, local_tracks) = self
+            .repository
+            .get_album_details(album_id)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?
+            .ok_or_else(|| JellyfinError::ApiError {
+                status: StatusCode::NOT_FOUND,
+                message: "Album not found".to_string(),
+            })?;
 
         let result = AlbumInfoResponse {
             name: local_album.title,
@@ -674,59 +619,31 @@ impl JellyfinClient {
         &self,
         album_id: &str,
         access_token: &str,
-        conn: &mut crate::db::Connection,
         user_id: Option<&str>,
     ) -> Result<Album, JellyfinError> {
         // Check if the album already exists in the database
-        let local_album = self.find_album(album_id, conn)?;
-
-        match local_album {
-            Some(album) => Ok(album),
-            None => {
-                // album does not exist, we will insert it
-                let album_info = self
-                    .get_jellyfin_item(album_id, access_token, user_id)
-                    .await?;
-
-                let new_album = NewAlbum {
-                    jellyfin_id: album_id,
-                    title: &album_info.name,
-                    artist: &album_info
-                        .album_artist
-                        .unwrap_or_else(|| "Unknown Artist".to_string()),
-                    created_at: chrono::Utc::now().naive_utc(),
-                    updated_at: chrono::Utc::now().naive_utc(),
-                };
-
-                diesel::insert_into(albums)
-                    .values(&new_album)
-                    .execute(conn)
-                    .map_err(|e| JellyfinError::DbError(e))?;
-
-                let new_local_album = self.find_album(album_id, conn)?;
-
-                match new_local_album {
-                    Some(album) => Ok(album),
-                    None => Err(JellyfinError::ApiError {
-                        status: StatusCode::NOT_FOUND,
-                        message: "Album not found after insertion".to_string(),
-                    }),
-                }
-            }
+        if let Some(album) = self
+            .repository
+            .find_album(album_id)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?
+        {
+            return Ok(album);
         }
-    }
 
-    fn find_album(
-        &self,
-        album_id: &str,
-        conn: &mut crate::db::Connection,
-    ) -> Result<Option<Album>, JellyfinError> {
-        albums
-            .filter(jellyfin_id.eq(album_id))
-            .select(Album::as_select())
-            .first(conn)
-            .optional()
-            .map_err(JellyfinError::DbError)
+        // album does not exist, we will insert it
+        let album_info = self
+            .get_jellyfin_item(album_id, access_token, user_id)
+            .await?;
+
+        self.repository
+            .create_album(
+                album_id,
+                &album_info.name,
+                &album_info
+                    .album_artist
+                    .unwrap_or_else(|| "Unknown Artist".to_string()),
+            )
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))
     }
 
     fn create_album_dir(
@@ -852,18 +769,10 @@ impl JellyfinClient {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
-        let mut conn = self
-            .db_pool
-            .get()
-            .map_err(|e| JellyfinError::DbPoolError(e))?;
-
-        let local_albums = albums
-            .order(updated_at.desc())
-            .limit(limit.unwrap_or(100) as i64)
-            .offset(offset.unwrap_or(0) as i64)
-            .select(Album::as_select())
-            .load::<Album>(&mut conn)
-            .map_err(|e| JellyfinError::DbError(e))?;
+        let local_albums = self
+            .repository
+            .get_recents_offline(limit, offset)
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
         let items = local_albums
             .into_iter()

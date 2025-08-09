@@ -12,6 +12,7 @@ use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::models::{
     AlbumInfoResponse, AlbumSearchResponse, AuthResponse, SessionResponse,
 };
+use crate::repository::Repository;
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
@@ -23,6 +24,7 @@ mod download_queue;
 mod jellyfin;
 mod models;
 mod schema;
+mod repository;
 
 pub struct AppState {
     jellyfin_client: Arc<JellyfinClient>,
@@ -178,6 +180,7 @@ async fn get_album_info(
         .map_err(|e| e.to_string())
 }
 
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let device_id = Uuid::new_v4().to_string();
@@ -200,9 +203,6 @@ pub fn run() {
                     .and_then(|v| v.as_str().map(String::from)),
             ));
 
-            // let app_data_dir = tauri::api::path::app_data_dir(&app.config())
-            //     .expect("Failed to get app data directory");
-
             let app_handle = app.handle();
 
             let app_data_path = app_handle.path().app_data_dir()?;
@@ -215,6 +215,7 @@ pub fn run() {
             db_connection.run_pending_migrations(MIGRATIONS).unwrap();
 
             let db_pool = db::establish_connection();
+            let repository = Repository::new(db_pool);
 
             let (download_queue, download_receiver) = DownloadQueue::new();
 
@@ -224,7 +225,7 @@ pub fn run() {
                 "Hacksawdio Desktop Client".to_string(),
                 device_id,
                 "0.0.1".to_string(),
-                db_pool,
+                repository,
                 download_queue.clone(),
             ));
 
