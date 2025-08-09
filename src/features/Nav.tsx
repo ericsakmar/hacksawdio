@@ -5,7 +5,7 @@ function Nav() {
   const navigate = useNavigate();
 
   useHotkeys("ctrl+s", () => {
-    navigate("/home");
+    navigate("/search");
   });
 
   useHotkeys("ctrl+l", () => {
@@ -15,7 +15,7 @@ function Nav() {
   return (
     <nav className="flex justify-center gap-4 text-sm text-zinc-400 mb-4">
       <NavLink
-        to="/home"
+        to="/search"
         className={({ isActive }) => (isActive ? "text-amber-300" : "")}
       >
         search

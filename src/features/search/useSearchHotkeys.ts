@@ -2,7 +2,7 @@ import { RefObject } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { AlbumSearchResponse } from "../auth/types";
 
-interface UseHomeHotkeysProps {
+interface UseSearchHotkeysProps {
   executeSearch: (newOffset: number) => void;
   focusedAlbumId: string | null;
   limit: number;
@@ -13,7 +13,7 @@ interface UseHomeHotkeysProps {
   setIsOnline: (updater: (prev: boolean) => boolean) => void;
 }
 
-export const useHomeHotkeys = ({
+export const useSearchHotkeys = ({
   executeSearch,
   focusedAlbumId,
   limit,
@@ -22,7 +22,7 @@ export const useHomeHotkeys = ({
   searchInputRef,
   setFocusedAlbumId,
   setIsOnline,
-}: UseHomeHotkeysProps) => {
+}: UseSearchHotkeysProps) => {
   // focus the search input when "slash" is pressed
   useHotkeys(
     "slash",
@@ -126,4 +126,3 @@ export const useHomeHotkeys = ({
     }
   );
 };
-

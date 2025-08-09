@@ -15,7 +15,7 @@ function LoginPage() {
         username,
         password,
       });
-      navigate("/home");
+      navigate("/search");
     } catch (error) {
       console.error("Login failed:", error);
       // Handle login failure (e.g., show an error message)

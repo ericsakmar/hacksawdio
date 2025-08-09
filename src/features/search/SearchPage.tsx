@@ -5,7 +5,7 @@ import { useDownloadStatus } from "./useDownloadStatus";
 import { useSearch } from "./useSearch";
 import OnlineIcon from "../components/OnlineIcon";
 import OfflineIcon from "../components/OfflineIcon";
-import { useHomeHotkeys } from "./useHomeHotkeys";
+import { useSearchHotkeys } from "./useSearchHotkeys";
 import OnlineSearchResult from "./OnlineSearchResult";
 import OfflineSearchResult from "./OfflineSearchResult";
 import { usePlayback } from "../playback/PlaybackProvider";
@@ -13,7 +13,7 @@ import Nav from "../Nav";
 import { useNavigate } from "react-router";
 import MiniPlayer from "./MiniPlayer";
 
-function HomePage() {
+function SearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDownloading = useDownloadStatus();
@@ -34,7 +34,7 @@ function HomePage() {
     summary,
   } = useSearch(isOnline);
 
-  useHomeHotkeys({
+  useSearchHotkeys({
     executeSearch,
     focusedAlbumId,
     limit,
@@ -185,4 +185,4 @@ function HomePage() {
   );
 }
 
-export default HomePage;
+export default SearchPage;
