@@ -62,16 +62,7 @@ impl MusicManager {
 
         let album_results = self
             .jellyfin_client
-            .search_jellyfin(
-                Some(search),
-                "MusicAlbum",
-                access_token,
-                None,
-                None,
-                None,
-                None,
-                user_id,
-            )
+            .search_albums(search, access_token, user_id)
             .await?;
 
         let artist_album_results = self
@@ -239,16 +230,7 @@ impl MusicManager {
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let artist_results = self
             .jellyfin_client
-            .search_jellyfin(
-                Some(search),
-                "MusicArtist",
-                access_token,
-                None,
-                None,
-                None,
-                None,
-                user_id,
-            )
+            .search_artists(search, access_token, user_id)
             .await?;
 
         let artist_ids: Vec<String> = artist_results
@@ -268,16 +250,7 @@ impl MusicManager {
 
         let artist_album_results = self
             .jellyfin_client
-            .search_jellyfin(
-                None,
-                "MusicAlbum",
-                access_token,
-                None,
-                None,
-                None,
-                Some(artist_ids),
-                user_id,
-            )
+            .search_albums_by_artist(artist_ids, access_token, user_id)
             .await;
 
         artist_album_results

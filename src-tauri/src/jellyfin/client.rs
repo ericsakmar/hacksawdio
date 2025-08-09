@@ -75,7 +75,64 @@ impl JellyfinClient {
         }
     }
 
-    pub async fn search_jellyfin(
+    pub async fn search_albums(
+        &self,
+        search: &str,
+        access_token: &str,
+        user_id: Option<&str>,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        self.search_items(
+            Some(search),
+            "MusicAlbum",
+            access_token,
+            None,
+            None,
+            None,
+            None,
+            user_id,
+        )
+        .await
+    }
+
+    pub async fn search_artists(
+        &self,
+        search: &str,
+        access_token: &str,
+        user_id: Option<&str>,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        self.search_items(
+            Some(search),
+            "MusicArtist",
+            access_token,
+            None,
+            None,
+            None,
+            None,
+            user_id,
+        )
+        .await
+    }
+
+    pub async fn search_albums_by_artist(
+        &self,
+        artist_ids: Vec<String>,
+        access_token: &str,
+        user_id: Option<&str>,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        self.search_items(
+            None,
+            "MusicAlbum",
+            access_token,
+            None,
+            None,
+            None,
+            Some(artist_ids),
+            user_id,
+        )
+        .await
+    }
+
+    async fn search_items(
         &self,
         search: Option<&str>,
         item_types: &str,

@@ -20,7 +20,6 @@ use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 mod db;
-
 mod download_queue;
 mod jellyfin;
 mod models;
