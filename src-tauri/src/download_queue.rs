@@ -1,4 +1,4 @@
-use crate::jellyfin::client::JellyfinClient;
+use crate::music_manager::MusicManager;
 use std::sync::{mpsc, Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 
@@ -57,7 +57,7 @@ fn handle_message(
     message: DownloadQueueMessage,
     app_handle: &AppHandle,
     rt: &tokio::runtime::Runtime,
-    jellyfin_client: &Arc<JellyfinClient>,
+    jellyfin_client: &Arc<MusicManager>,
     auth_token: &Arc<Mutex<Option<String>>>,
 ) -> bool {
     // returns false if shutdown
@@ -116,7 +116,7 @@ fn handle_message(
 pub fn process_downloads(
     app_handle: AppHandle,
     receiver: mpsc::Receiver<DownloadQueueMessage>,
-    jellyfin_client: Arc<JellyfinClient>,
+    jellyfin_client: Arc<MusicManager>,
     auth_token: Arc<Mutex<Option<String>>>,
 ) {
     let rt = tokio::runtime::Runtime::new().unwrap();

@@ -8,10 +8,10 @@ use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
 use crate::download_queue::{process_downloads, DownloadQueue};
-use crate::jellyfin::client::JellyfinClient;
 use crate::jellyfin::models::{
     AlbumInfoResponse, AlbumSearchResponse, AuthResponse, SessionResponse,
 };
+use crate::music_manager::MusicManager;
 use crate::repository::Repository;
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -23,11 +23,12 @@ mod db;
 mod download_queue;
 mod jellyfin;
 mod models;
-mod schema;
+mod music_manager;
 mod repository;
+mod schema;
 
 pub struct AppState {
-    jellyfin_client: Arc<JellyfinClient>,
+    music_manager: Arc<MusicManager>,
     auth_token: Arc<Mutex<Option<String>>>,
     user_id: Arc<Mutex<Option<String>>>,
     download_queue: DownloadQueue,
@@ -90,9 +91,9 @@ async fn authenticate_user_by_name_cmd(
     password: String,
     state: State<'_, AppState>,
 ) -> Result<AuthResponse, String> {
-    let client = &state.jellyfin_client;
+    let music_manager = &state.music_manager;
 
-    let response = client
+    let response = music_manager
         .authenticate_user_by_name(&username, &password)
         .await
         .map_err(|e| e.to_string())?;
@@ -111,13 +112,13 @@ async fn search_albums(
     online: bool,
     state: State<'_, AppState>,
 ) -> Result<AlbumSearchResponse, String> {
-    let client = &state.jellyfin_client;
+    let music_manager = &state.music_manager;
 
     let access_token = get_access_token(&state).await?;
     let user_id = get_user_id(&state).await?;
 
     if online {
-        return client
+        return music_manager
             .search_albums(
                 &search,
                 &access_token,
@@ -129,7 +130,7 @@ async fn search_albums(
             .map_err(|e| e.to_string());
     }
 
-    client
+    music_manager
         .search_albums_offline(&search, limit, offset)
         .await
         .map_err(|e| e.to_string())
@@ -141,12 +142,12 @@ async fn download_album(
     album_id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let client = &state.jellyfin_client;
+    let music_manager = &state.music_manager;
 
     let access_token = get_access_token(&state).await?;
     let user_id = get_user_id(&state).await?;
 
-    client
+    music_manager
         .download_album(
             &app_handle,
             &album_id,
@@ -159,9 +160,9 @@ async fn download_album(
 
 #[tauri::command]
 async fn delete_album(album_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    let client = &state.jellyfin_client;
+    let music_manager = &state.music_manager;
 
-    client
+    music_manager
         .delete_album(&album_id)
         .await
         .map_err(|e| e.to_string())
@@ -172,14 +173,13 @@ async fn get_album_info(
     album_id: String,
     state: State<'_, AppState>,
 ) -> Result<AlbumInfoResponse, String> {
-    let client = &state.jellyfin_client;
+    let music_manager = &state.music_manager;
 
-    client
+    music_manager
         .get_album_info(&album_id)
         .await
         .map_err(|e| e.to_string())
 }
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -219,7 +219,7 @@ pub fn run() {
 
             let (download_queue, download_receiver) = DownloadQueue::new();
 
-            let jellyfin_client = Arc::new(JellyfinClient::new(
+            let music_manager = Arc::new(MusicManager::new(
                 "http://192.168.1.153:8097".to_string(),
                 "Hacksawdio".to_string(),
                 "Hacksawdio Desktop Client".to_string(),
@@ -230,20 +230,20 @@ pub fn run() {
             ));
 
             let app_handle = app.handle().clone();
-            let jellyfin_client_clone = jellyfin_client.clone();
+            let music_manager_clone = music_manager.clone();
             let auth_token_clone = auth_token.clone();
 
             thread::spawn(move || {
                 process_downloads(
                     app_handle,
                     download_receiver,
-                    jellyfin_client_clone,
+                    music_manager_clone,
                     auth_token_clone,
                 );
             });
 
             app.manage(AppState {
-                jellyfin_client,
+                music_manager,
                 auth_token,
                 user_id,
                 download_queue,

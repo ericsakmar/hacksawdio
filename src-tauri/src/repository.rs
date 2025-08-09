@@ -125,8 +125,9 @@ impl Repository {
             .values(&new_album)
             .execute(&mut conn)?;
 
-        self.find_album(jellyfin_id_str)?
-            .ok_or_else(|| RepositoryError::GenericError("Album not found after insertion".to_string()))
+        self.find_album(jellyfin_id_str)?.ok_or_else(|| {
+            RepositoryError::GenericError("Album not found after insertion".to_string())
+        })
     }
 
     pub fn insert_track(&self, new_track: &NewTrack) -> Result<(), RepositoryError> {
@@ -144,10 +145,7 @@ impl Repository {
     ) -> Result<(), RepositoryError> {
         let mut conn = self.db_pool.get()?;
         diesel::update(albums.filter(jellyfin_id.eq(album_id)))
-            .set((
-                path.eq(album_path),
-                updated_at.eq(diesel::dsl::now),
-            ))
+            .set((path.eq(album_path), updated_at.eq(diesel::dsl::now)))
             .execute(&mut conn)?;
         Ok(())
     }
@@ -158,8 +156,7 @@ impl Repository {
         diesel::delete(tracks_dsl::tracks.filter(tracks_dsl::album_id.eq(album.id)))
             .execute(&mut conn)?;
 
-        diesel::delete(albums.filter(jellyfin_id.eq(&album.jellyfin_id)))
-            .execute(&mut conn)?;
+        diesel::delete(albums.filter(jellyfin_id.eq(&album.jellyfin_id))).execute(&mut conn)?;
 
         Ok(())
     }
