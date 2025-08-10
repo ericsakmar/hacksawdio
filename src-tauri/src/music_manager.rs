@@ -4,7 +4,7 @@ use crate::jellyfin::models::{
     AlbumInfoResponse, AlbumSearchResponse, AlbumSearchResponseItem, AlbumTrackResponse,
     AuthResponse, JellyfinItem, JellyfinItemsResponse,
 };
-use crate::models::{Album, NewTrack};
+use crate::models::Album;
 use crate::repository::Repository;
 use reqwest::StatusCode;
 use sanitize_filename::sanitize;
@@ -15,7 +15,7 @@ use tauri::{AppHandle, Manager};
 
 pub struct MusicManager {
     jellyfin_client: JellyfinClient,
-    repository: Repository,
+    pub repository: Repository,
     download_queue: crate::download_queue::DownloadQueue,
 }
 
@@ -127,55 +127,15 @@ impl MusicManager {
         &self,
         app_handle: &tauri::AppHandle,
         album_id: &str,
-        access_token: &str,
-        user_id: Option<&str>,
+        user_id: &str,
     ) -> Result<(), JellyfinError> {
-        // get the album
-        let album = self.sync_album(album_id, access_token, user_id).await?;
-
-        // already downloaded
-        if album.path.is_some() {
-            return Ok(());
-        }
-
-        // create the album directory
-        let dir = self.create_album_dir(app_handle, &album.artist, &album.title)?;
-
-        // get the tracks for the album
-        let tracks = self
-            .jellyfin_client
-            .get_tracks(album_id, access_token)
-            .await?;
-        let total_tracks = tracks.items.len();
-
-        for track in tracks.items {
-            let track_filename = self.generate_track_name(&track, total_tracks);
-            let download_path = dir.join(&track_filename);
-
-            self.repository
-                .insert_track(&NewTrack {
-                    jellyfin_id: &track.id,
-                    name: &track.name,
-                    album_id: album.id,
-                    path: Some(download_path.to_string_lossy().to_string()),
-                    track_index: track.index_number.unwrap_or(0) as i32,
-                })
-                .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
-
-            self.download_queue.add_track(
-                crate::download_queue::Track {
-                    track_id: track.id,
-                    track_path: download_path.to_string_lossy().to_string(),
-                },
-                app_handle,
-            );
-        }
-
-        // mark album as downloaded
-        self.repository
-            .mark_album_as_downloaded(album_id, &dir.to_string_lossy())
-            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
-
+        self.download_queue.add_album(
+            crate::download_queue::Album {
+                album_id: album_id.to_string(),
+                user_id: user_id.to_string(),
+            },
+            app_handle,
+        );
         Ok(())
     }
 
@@ -303,6 +263,16 @@ impl MusicManager {
             .await
     }
 
+    pub async fn get_tracks(
+        &self,
+        album_id: &str,
+        access_token: &str,
+    ) -> Result<JellyfinItemsResponse, JellyfinError> {
+        self.jellyfin_client
+            .get_tracks(album_id, access_token)
+            .await
+    }
+
     pub async fn get_album_info(&self, album_id: &str) -> Result<AlbumInfoResponse, JellyfinError> {
         let (local_album, local_tracks) = self
             .repository
@@ -328,7 +298,7 @@ impl MusicManager {
         Ok(result)
     }
 
-    async fn sync_album(
+    pub async fn sync_album(
         &self,
         album_id: &str,
         access_token: &str,
@@ -360,7 +330,7 @@ impl MusicManager {
             .map_err(|e| JellyfinError::GenericError(e.to_string()))
     }
 
-    fn create_album_dir(
+    pub fn create_album_dir(
         &self,
         app_handle: &AppHandle,
         album_artist: &str,
@@ -383,7 +353,7 @@ impl MusicManager {
         Ok(app_data_path)
     }
 
-    fn generate_track_name(&self, track: &JellyfinItem, total_tracks: usize) -> String {
+    pub fn generate_track_name(&self, track: &JellyfinItem, total_tracks: usize) -> String {
         let extension = match track.container.as_ref() {
             Some(ext) => format!(".{}", ext),
             None => "".to_string(),

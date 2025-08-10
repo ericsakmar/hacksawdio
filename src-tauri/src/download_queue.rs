@@ -1,3 +1,5 @@
+use crate::jellyfin::errors::JellyfinError;
+use crate::models::NewTrack;
 use crate::music_manager::MusicManager;
 use std::sync::{mpsc, Arc, Mutex};
 use tauri::{AppHandle, Emitter};
@@ -9,20 +11,24 @@ struct DownloadQueueEmpty;
 struct DownloadQueueNotEmpty;
 
 #[derive(Clone, serde::Serialize)]
-struct DownloadFailed {
-    track_id: String,
-    error: String,
+struct AlbumDownloadStarted {
+    album_id: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct AlbumDownloadCompleted {
+    album_id: String,
 }
 
 // Track details for a download
-pub struct Track {
-    pub track_id: String,
-    pub track_path: String,
+pub struct Album {
+    pub album_id: String,
+    pub user_id: String,
 }
 
 // Message type for the download queue channel
 pub enum DownloadQueueMessage {
-    NewTrack(Track),
+    NewAlbum(Album),
     Shutdown,
 }
 
@@ -38,12 +44,12 @@ impl DownloadQueue {
         (Self { sender }, receiver)
     }
 
-    pub fn add_track(&self, track: Track, app_handle: &AppHandle) {
+    pub fn add_album(&self, album: Album, app_handle: &AppHandle) {
         app_handle
             .emit("download-queue-not-empty", DownloadQueueNotEmpty)
             .unwrap();
         self.sender
-            .send(DownloadQueueMessage::NewTrack(track))
+            .send(DownloadQueueMessage::NewAlbum(album))
             .unwrap();
     }
 
@@ -57,35 +63,93 @@ fn handle_message(
     message: DownloadQueueMessage,
     app_handle: &AppHandle,
     rt: &tokio::runtime::Runtime,
-    jellyfin_client: &Arc<MusicManager>,
+    music_manager: &Arc<MusicManager>,
     auth_token: &Arc<Mutex<Option<String>>>,
 ) -> bool {
     // returns false if shutdown
     match message {
-        DownloadQueueMessage::NewTrack(track) => {
+        DownloadQueueMessage::NewAlbum(album) => {
             let token = {
                 let token_guard = auth_token.lock().unwrap();
                 token_guard.clone()
             };
 
             if let Some(token) = token {
+                app_handle
+                    .emit(
+                        "album-download-started",
+                        AlbumDownloadStarted { album_id: album.album_id.clone() },
+                    )
+                    .unwrap();
+
                 rt.block_on(async {
-                    if let Err(e) = jellyfin_client
-                        .download_track(&track.track_id, &track.track_path, &token)
-                        .await
-                    {
+                    let album_download_result: Result<(), JellyfinError> = async {
+                        let local_album = music_manager
+                            .sync_album(&album.album_id, &token, Some(&album.user_id))
+                            .await?;
+
+                        // already downloaded
+                        if local_album.path.is_some() {
+                            return Ok(());
+                        }
+
+                        // create the album directory
+                        let dir = music_manager.create_album_dir(
+                            app_handle,
+                            &local_album.artist,
+                            &local_album.title,
+                        )?;
+
+                        // get the tracks for the album
+                        let tracks = music_manager.get_tracks(&album.album_id, &token).await?;
+                        let total_tracks = tracks.items.len();
+
+                        for track in tracks.items {
+                            let track_filename = music_manager.generate_track_name(&track, total_tracks);
+                            let download_path = dir.join(&track_filename);
+
+                            music_manager
+                                .repository
+                                .insert_track(&NewTrack {
+                                    jellyfin_id: &track.id,
+                                    name: &track.name,
+                                    album_id: local_album.id,
+                                    path: Some(download_path.to_string_lossy().to_string()),
+                                    track_index: track.index_number.unwrap_or(0) as i32,
+                                })
+                                .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
+
+                            music_manager
+                                .download_track(
+                                    &track.id,
+                                    &download_path.to_string_lossy(),
+                                    &token,
+                                )
+                                .await?;
+                        }
+
+                        // mark album as downloaded
+                        music_manager
+                            .repository
+                            .mark_album_as_downloaded(
+                                &album.album_id,
+                                &dir.to_string_lossy(),
+                            )
+                            .map_err(|e| JellyfinError::GenericError(e.to_string()))
+                    }
+                    .await;
+
+                    if let Err(e) = album_download_result {
                         let error_message = e.to_string();
                         eprintln!(
-                            "Error downloading track {}: {}",
-                            &track.track_id, &error_message
+                            "Error downloading album {}: {}",
+                            &album.album_id, &error_message
                         );
+                    } else {
                         app_handle
                             .emit(
-                                "download-failed",
-                                DownloadFailed {
-                                    track_id: track.track_id,
-                                    error: error_message,
-                                },
+                                "album-download-completed",
+                                AlbumDownloadCompleted { album_id: album.album_id.clone() },
                             )
                             .unwrap();
                     }
@@ -93,15 +157,6 @@ fn handle_message(
             } else {
                 let error_message = "Download failed: No auth token available.".to_string();
                 eprintln!("{}", &error_message);
-                app_handle
-                    .emit(
-                        "download-failed",
-                        DownloadFailed {
-                            track_id: track.track_id,
-                            error: error_message,
-                        },
-                    )
-                    .unwrap();
             }
             true
         }

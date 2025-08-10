@@ -5,35 +5,36 @@ export function useDownloadStatus() {
   const [isQueueActive, setIsQueueActive] = useState(false);
 
   useEffect(() => {
-    let unlistenNotEmpty: () => void;
-    let unlistenEmpty: () => void;
+    let unlistenAlbumDownloadStarted: () => void;
+    let unlisetnAlbumDownloadFinished: () => void;
+    // albumDownloadError?
 
     const setupListeners = async () => {
-      // Listen for the 'download-queue-not-empty' event
-      unlistenNotEmpty = await listen<void>(
-        "download-queue-not-empty",
+      unlistenAlbumDownloadStarted = await listen<void>(
+        "album-download-started",
         (event) => {
-          console.log("Download queue is now active:", event);
+          console.log("Album download started:", event);
           setIsQueueActive(true);
         }
       );
 
-      // Listen for the 'download-queue-empty' event
-      unlistenEmpty = await listen<void>("download-queue-empty", (event) => {
-        console.log("Download queue is now empty:", event);
-        setIsQueueActive(false);
-      });
+      unlisetnAlbumDownloadFinished = await listen<void>(
+        "album-download-completed",
+        (event) => {
+          console.log("Download queue is now empty:", event);
+          setIsQueueActive(false);
+        }
+      );
     };
 
     setupListeners();
 
-    // Cleanup function: This will be called when the component unmounts.
     return () => {
-      if (unlistenNotEmpty) {
-        unlistenNotEmpty();
+      if (unlistenAlbumDownloadStarted) {
+        unlistenAlbumDownloadStarted();
       }
-      if (unlistenEmpty) {
-        unlistenEmpty();
+      if (unlisetnAlbumDownloadFinished) {
+        unlisetnAlbumDownloadFinished();
       }
     };
   }, []); // The empty dependency array ensures this effect runs only once on mount.

@@ -144,16 +144,10 @@ async fn download_album(
 ) -> Result<(), String> {
     let music_manager = &state.music_manager;
 
-    let access_token = get_access_token(&state).await?;
     let user_id = get_user_id(&state).await?;
 
     music_manager
-        .download_album(
-            &app_handle,
-            &album_id,
-            &access_token,
-            Some(user_id.as_str()),
-        )
+        .download_album(&app_handle, &album_id, &user_id)
         .await
         .map_err(|e| e.to_string())
 }
