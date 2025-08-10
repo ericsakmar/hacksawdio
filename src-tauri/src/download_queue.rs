@@ -48,6 +48,7 @@ impl DownloadQueue {
         app_handle
             .emit("download-queue-not-empty", DownloadQueueNotEmpty)
             .unwrap();
+
         self.sender
             .send(DownloadQueueMessage::NewAlbum(album))
             .unwrap();
@@ -78,7 +79,9 @@ fn handle_message(
                 app_handle
                     .emit(
                         "album-download-started",
-                        AlbumDownloadStarted { album_id: album.album_id.clone() },
+                        AlbumDownloadStarted {
+                            album_id: album.album_id.clone(),
+                        },
                     )
                     .unwrap();
 
@@ -105,7 +108,8 @@ fn handle_message(
                         let total_tracks = tracks.items.len();
 
                         for track in tracks.items {
-                            let track_filename = music_manager.generate_track_name(&track, total_tracks);
+                            let track_filename =
+                                music_manager.generate_track_name(&track, total_tracks);
                             let download_path = dir.join(&track_filename);
 
                             music_manager
@@ -120,21 +124,14 @@ fn handle_message(
                                 .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
 
                             music_manager
-                                .download_track(
-                                    &track.id,
-                                    &download_path.to_string_lossy(),
-                                    &token,
-                                )
+                                .download_track(&track.id, &download_path.to_string_lossy(), &token)
                                 .await?;
                         }
 
                         // mark album as downloaded
                         music_manager
                             .repository
-                            .mark_album_as_downloaded(
-                                &album.album_id,
-                                &dir.to_string_lossy(),
-                            )
+                            .mark_album_as_downloaded(&album.album_id, &dir.to_string_lossy())
                             .map_err(|e| JellyfinError::GenericError(e.to_string()))
                     }
                     .await;
@@ -149,7 +146,9 @@ fn handle_message(
                         app_handle
                             .emit(
                                 "album-download-completed",
-                                AlbumDownloadCompleted { album_id: album.album_id.clone() },
+                                AlbumDownloadCompleted {
+                                    album_id: album.album_id.clone(),
+                                },
                             )
                             .unwrap();
                     }
@@ -176,29 +175,44 @@ pub fn process_downloads(
 ) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    loop {
-        match receiver.recv() {
-            Ok(message) => {
-                if !handle_message(message, &app_handle, &rt, &jellyfin_client, &auth_token) {
-                    break;
-                }
-
-                // Process all other pending messages in the queue
-                while let Ok(message) = receiver.try_recv() {
-                    if !handle_message(message, &app_handle, &rt, &jellyfin_client, &auth_token) {
-                        break; // Shutdown message received
-                    }
-                }
-
-                // After processing all items, emit the empty event
-                app_handle
-                    .emit("download-queue-empty", DownloadQueueEmpty)
-                    .unwrap();
-            }
-            Err(mpsc::RecvError) => {
-                // This error occurs if the sender has been dropped.
+    'main_loop: loop {
+        // Wait for the first message of a batch
+        let mut current_message = match receiver.recv() {
+            Ok(msg) => msg,
+            Err(_) => {
                 println!("Download queue channel disconnected.");
-                break;
+                break; // Exit the main loop
+            }
+        };
+
+        // Inner loop to process the batch
+        loop {
+            if !handle_message(
+                current_message,
+                &app_handle,
+                &rt,
+                &jellyfin_client,
+                &auth_token,
+            ) {
+                break 'main_loop; // Shutdown received, exit completely
+            }
+
+            // Try to get the next message without blocking
+            match receiver.try_recv() {
+                Ok(next_msg) => {
+                    // If we got another message, process it in the next iteration
+                    current_message = next_msg;
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    // The queue is now empty, emit the event and wait for a new message
+                    app_handle
+                        .emit("download-queue-empty", DownloadQueueEmpty)
+                        .unwrap();
+                    break; // Exit inner loop, go back to recv()
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    break 'main_loop; // Channel disconnected
+                }
             }
         }
     }
