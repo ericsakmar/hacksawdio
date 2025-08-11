@@ -9,7 +9,6 @@ interface UseSearchHotkeysProps {
   results: ResultsState | null;
   searchInputRef: RefObject<HTMLInputElement>;
   setFocusedAlbumId: (id: string) => void;
-  setIsOnline: (updater: (prev: boolean) => boolean) => void;
 }
 
 export const useSearchHotkeys = ({
@@ -19,7 +18,6 @@ export const useSearchHotkeys = ({
   results,
   searchInputRef,
   setFocusedAlbumId,
-  setIsOnline,
 }: UseSearchHotkeysProps) => {
   // focus the search input when "slash" is pressed
   useHotkeys(
@@ -109,18 +107,6 @@ export const useSearchHotkeys = ({
     },
     {
       preventDefault: true,
-    }
-  );
-
-  // toggle online/offline mode with "cmd + o"
-  useHotkeys(
-    "ctrl+o",
-    () => {
-      setIsOnline((prev) => !prev);
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: ["INPUT", "TEXTAREA"],
     }
   );
 };

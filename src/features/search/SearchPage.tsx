@@ -12,12 +12,13 @@ import { usePlayback } from "../playback/PlaybackProvider";
 import Nav from "../Nav";
 import { useNavigate } from "react-router";
 import MiniPlayer from "./MiniPlayer";
+import { useOnlineStatus } from "../OnlineStatusProvider";
 
 function SearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
-  const { isQueueActive, isAlbumDownloading } = useDownloadStatus();
-  const [isOnline, setIsOnline] = useState(false);
+  const { isQueueActive } = useDownloadStatus();
+  const { isOnline, setIsOnline } = useOnlineStatus();
   const { setAlbum, album } = usePlayback();
   const navigate = useNavigate();
 
@@ -41,7 +42,6 @@ function SearchPage() {
     results,
     searchInputRef,
     setFocusedAlbumId,
-    setIsOnline,
   });
 
   // sets the focus
