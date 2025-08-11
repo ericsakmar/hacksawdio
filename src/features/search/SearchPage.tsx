@@ -1,15 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import Logo from "../components/Logo";
-import { useDownloadStatus } from "./useDownloadStatus";
 import { useSearch } from "./useSearch";
-import OnlineIcon from "../components/OnlineIcon";
-import OfflineIcon from "../components/OfflineIcon";
 import { useSearchHotkeys } from "./useSearchHotkeys";
 import OnlineSearchResult from "./OnlineSearchResult";
 import OfflineSearchResult from "./OfflineSearchResult";
 import { usePlayback } from "../playback/PlaybackProvider";
-import Nav from "../Nav";
 import { useNavigate } from "react-router";
 import MiniPlayer from "./MiniPlayer";
 import { useOnlineStatus } from "../OnlineStatusProvider";
@@ -17,14 +12,12 @@ import { useOnlineStatus } from "../OnlineStatusProvider";
 function SearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
-  const { isQueueActive } = useDownloadStatus();
-  const { isOnline, setIsOnline } = useOnlineStatus();
+  const { isOnline } = useOnlineStatus();
   const { setAlbum, album } = usePlayback();
   const navigate = useNavigate();
 
   const {
     executeSearch,
-    isSearching,
     limit,
     offset,
     results,
@@ -81,10 +74,6 @@ function SearchPage() {
     }
   };
 
-  const handleOnlineToggle = () => {
-    setIsOnline((prev) => !prev);
-  };
-
   const handlePlay = async (id: string) => {
     const album = await invoke<Album>("get_album_info", { albumId: id });
     setAlbum(album);
@@ -92,18 +81,7 @@ function SearchPage() {
   };
 
   return (
-    <main className="container mx-auto p-4">
-      <header className="relative">
-        <Logo animated={isSearching || isQueueActive} />
-        <button
-          onClick={handleOnlineToggle}
-          className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
-        >
-          {isOnline ? <OnlineIcon /> : <OfflineIcon />}
-        </button>
-        <Nav />
-      </header>
-
+    <>
       <form
         onSubmit={handleSubmit}
         className="bg-zinc-900 border-zinc-600 border-dashed border-2 p-4 my-4 flex rounded shadow-black shadow gap-4 focus-within:border-amber-300"
@@ -170,7 +148,7 @@ function SearchPage() {
           <MiniPlayer />
         </div>
       ) : null}
-    </main>
+    </>
   );
 }
 
