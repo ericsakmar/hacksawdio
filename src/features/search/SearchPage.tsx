@@ -16,7 +16,7 @@ import MiniPlayer from "./MiniPlayer";
 function SearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
-  const isDownloading = useDownloadStatus();
+  const { isQueueActive, isAlbumDownloading } = useDownloadStatus();
   const [isOnline, setIsOnline] = useState(false);
   const { setAlbum, album } = usePlayback();
   const navigate = useNavigate();
@@ -94,7 +94,7 @@ function SearchPage() {
   return (
     <main className="container mx-auto p-4">
       <header className="relative">
-        <Logo animated={isSearching || isDownloading} />
+        <Logo animated={isSearching || isQueueActive} />
         <button
           onClick={handleOnlineToggle}
           className="absolute top-2 right-0 opacity-70 focus:opacity-100 hover:opacity-100"
