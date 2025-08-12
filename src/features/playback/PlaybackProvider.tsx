@@ -1,5 +1,4 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   PropsWithChildren,
   createContext,
@@ -30,6 +29,16 @@ type PlaybackContextType = {
 const PlaybackContext = createContext<PlaybackContextType | undefined>(
   undefined
 );
+
+function setMediaSessionMedadata(title: string, artist: string, album: string) {
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist,
+      album,
+    });
+  }
+}
 
 export const PlaybackProvider = ({ children }: PropsWithChildren) => {
   const [album, setAlbum] = useState<Album | null>(null);
@@ -80,7 +89,9 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
       setIsPlaying(false);
     };
 
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
 
     const handleLoadedMetadata = () => setDuration(audio.duration);
 
@@ -173,38 +184,8 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
       return;
     }
 
-    console.log("Setting media info");
-
-    invoke("set_media_info", {
-      title: track.name,
-      artist: album.artist,
-      album: album.name,
-      duration: duration,
-    });
-  }, [track, album, duration]);
-
-  useEffect(() => {
-    const unlisten = listen("media-control", (event) => {
-      switch (event.payload) {
-        case "play":
-          togglePlayPause();
-          break;
-        case "pause":
-          togglePlayPause();
-          break;
-        case "next":
-          handleNextTrack();
-          break;
-        case "previous":
-          handlePreviousTrack();
-          break;
-      }
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
+    setMediaSessionMedadata(track.name, album.artist, album.name);
+  }, [track, album]);
 
   return (
     <PlaybackContext.Provider
