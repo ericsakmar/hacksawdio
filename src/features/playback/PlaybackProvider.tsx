@@ -1,4 +1,5 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   PropsWithChildren,
   createContext,
@@ -166,6 +167,44 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
   };
 
   const hasPreviousTrack = trackIndex !== null && trackIndex > 0;
+
+  useEffect(() => {
+    if (!track || !album) {
+      return;
+    }
+
+    console.log("Setting media info");
+
+    invoke("set_media_info", {
+      title: track.name,
+      artist: album.artist,
+      album: album.name,
+      duration: duration,
+    });
+  }, [track, album, duration]);
+
+  useEffect(() => {
+    const unlisten = listen("media-control", (event) => {
+      switch (event.payload) {
+        case "play":
+          togglePlayPause();
+          break;
+        case "pause":
+          togglePlayPause();
+          break;
+        case "next":
+          handleNextTrack();
+          break;
+        case "previous":
+          handlePreviousTrack();
+          break;
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   return (
     <PlaybackContext.Provider

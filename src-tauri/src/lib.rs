@@ -22,6 +22,7 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 mod db;
 mod download_queue;
 mod jellyfin;
+mod media_controls;
 mod models;
 mod music_manager;
 mod repository;
@@ -175,6 +176,17 @@ async fn get_album_info(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn set_media_info(title: String, artist: String, album: String, duration: f64) {
+    println!(
+        "Setting media info: title={}, artist={}, album={}, duration={}",
+        title, artist, album, duration
+    );
+    media_controls::set_now_playing(&title, &artist, &album, duration, None);
+    media_controls::update_playback_state(true);
+    media_controls::update_playback_time(0.1); // Reset playback time to 0
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let device_id = Uuid::new_v4().to_string();
@@ -183,6 +195,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
+            // media_controls::setup_media_controls(app.handle().clone());
             let store = app.store("store.json")?;
 
             let auth_token = Arc::new(Mutex::new(
@@ -265,7 +278,8 @@ pub fn run() {
             search_albums,
             download_album,
             delete_album,
-            get_album_info
+            get_album_info,
+            set_media_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

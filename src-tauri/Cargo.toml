@@ -35,6 +35,10 @@ diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
 futures = "0.3"
 url = "2.5"
 chrono = { version = "0.4.41", features = ["serde"] }
+objc2 = "0.6.1"
+objc2-foundation = "0.3.1"
+objc2-media-player = "0.3.1"
+block2 = "0.6.1"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"
