@@ -52,21 +52,19 @@ function Player() {
         <Seeker />
       </div>
 
-      <ol className="space-y-2 my-8 max-w-md mx-auto">
+      <div>
         {tracks.map((t, index) => (
-          <li
+          <div
             key={index}
-            className={trackIndex === index ? "text-amber-300" : ""}
+            className={`px-4 py-2 cursor-pointer ${
+              index === trackIndex ? "bg-zinc-900 rounded" : ""
+            }`}
+            onClick={() => handleTrackSelect(index)}
           >
-            <button
-              onClick={() => handleTrackSelect(index)}
-              className="inline-block text-left leading-6"
-            >
-              {index + 1}. {t.name}
-            </button>
-          </li>
+            {index + 1}. {t.name}
+          </div>
         ))}
-      </ol>
+      </div>
     </div>
   );
 }
