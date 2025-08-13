@@ -187,6 +187,18 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
     setMediaSessionMedadata(track.name, album.artist, album.name);
   }, [track, album]);
 
+  useEffect(() => {
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.setActionHandler("play", togglePlayPause);
+      navigator.mediaSession.setActionHandler("pause", togglePlayPause);
+      navigator.mediaSession.setActionHandler("nexttrack", handleNextTrack);
+      navigator.mediaSession.setActionHandler(
+        "previoustrack",
+        handlePreviousTrack
+      );
+    }
+  }, [togglePlayPause, handleNextTrack, handlePreviousTrack]);
+
   return (
     <PlaybackContext.Provider
       value={{

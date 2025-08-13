@@ -9,10 +9,10 @@ function MiniPlayer() {
   }
 
   return (
-    <div className="flex justify-between items-center">
+    <div className="flex justify-between items-center gap-2">
       <div>
-        <div>{track.name}</div>
-        <div className="text-zinc-400 text-sm">{album.artist}</div>
+        <div className="text-sm">{track.name}</div>
+        <div className="text-zinc-400 text-xs">{album.artist}</div>
       </div>
       <Controls size="sm" />
     </div>
