@@ -199,8 +199,13 @@ pub fn run() {
 
             // db/repository initialization
             let app_handle = app.handle();
-
             let app_data_path = app_handle.path().app_data_dir()?;
+
+            // create the app data directory if it doesn't exist
+            if !app_data_path.exists() {
+                std::fs::create_dir_all(&app_data_path)
+                    .expect("Failed to create app data directory");
+            }
 
             let db_path = app_data_path.join("hacksawdio.db");
 
