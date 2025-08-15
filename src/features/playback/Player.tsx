@@ -3,7 +3,6 @@ import Controls from "./Controls";
 import { usePlayback } from "./PlaybackProvider";
 import Seeker from "./Seeker";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import AudioWaveIcon from "../components/AudioWaveIcon";
 
 function Player() {
   const { album, track, tracks, trackIndex, setTrackIndex, togglePlayPause } =
