@@ -5,14 +5,7 @@ created with Tauri, Typescript, and Rust.
 
 ## Screenshots
 
-![screenshot showing offline search results](/screenshots/results-offline.png?raw=true "Offline Search Results")
-_Offline search results_
-
-![screenshot showing online search results](/screenshots/results-online.png?raw=true "Online Search Results")
-_Online search results_
-
-![screenshot showing music player](/screenshots/player.png?raw=true "Player")
-_Music player_
+![screenshot showing search results and music player](/screenshots/screenshots.png?raw=true "Search Results and Music Player")
 
 ## Keyboard Shortcuts
 
