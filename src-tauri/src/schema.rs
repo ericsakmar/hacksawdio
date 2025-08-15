@@ -9,6 +9,8 @@ diesel::table! {
         path -> Nullable<Text>,
         created_at -> Timestamp,
         updated_at -> Timestamp,
+        image_id -> Nullable<Text>,
+        image_path -> Nullable<Text>,
     }
 }
 

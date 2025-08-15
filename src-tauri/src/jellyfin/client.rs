@@ -222,6 +222,8 @@ impl JellyfinClient {
             url.set_path("/Items");
         }
 
+        // TODO consider only requesting the fields we need?
+
         url.query_pairs_mut()
             .append_pair("ids", item_id)
             .append_pair("recursive", "true");
@@ -314,6 +316,61 @@ impl JellyfinClient {
         access_token: &str,
     ) -> Result<(), JellyfinError> {
         let url = format!("{}/Items/{}/Download", self.base_url, track_id);
+
+        let response = self
+            .http_client
+            .get(&url)
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_else(|_| "N/A".to_string());
+            return Err(JellyfinError::ApiError {
+                status,
+                message: body,
+            });
+        }
+
+        let mut dest_file = tokio::fs::File::create(&download_path)
+            .await
+            .map_err(|e| JellyfinError::GenericError(format!("Failed to create file: {}", e)))?;
+
+        let mut stream = response.bytes_stream();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result?;
+            dest_file.write_all(&chunk).await.map_err(|e| {
+                JellyfinError::GenericError(format!("Failed to write chunk: {}", e))
+            })?;
+        }
+
+        dest_file
+            .flush()
+            .await
+            .map_err(|e| JellyfinError::GenericError(format!("Failed to flush file: {}", e)))?;
+
+        Ok(())
+    }
+
+    pub async fn download_album_art(
+        &self,
+        item_id: &str,
+        image_tag: &str,
+        download_path: &str,
+        access_token: &str,
+    ) -> Result<(), JellyfinError> {
+        let url = format!(
+            "{}/Items/{}/Images/Primary?fillHeight=300&fillWidth=300&quality=96&tag={}",
+            self.base_url, item_id, image_tag
+        );
 
         let response = self
             .http_client

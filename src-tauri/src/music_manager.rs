@@ -263,6 +263,18 @@ impl MusicManager {
             .await
     }
 
+    pub async fn download_album_art(
+        &self,
+        album_id: &str,
+        image_id: &str,
+        download_path: &str,
+        access_token: &str,
+    ) -> Result<(), JellyfinError> {
+        self.jellyfin_client
+            .download_album_art(album_id, image_id, download_path, access_token)
+            .await
+    }
+
     pub async fn get_tracks(
         &self,
         album_id: &str,
@@ -293,6 +305,7 @@ impl MusicManager {
                     playback_url: track.path.unwrap_or_default(),
                 })
                 .collect(),
+            image_url: local_album.image_path,
         };
 
         Ok(result)
@@ -319,6 +332,11 @@ impl MusicManager {
             .get_jellyfin_item(album_id, access_token, user_id)
             .await?;
 
+        let image_id = album_info
+            .image_tags
+            .as_ref()
+            .and_then(|tags| tags.primary.as_deref());
+
         self.repository
             .create_album(
                 album_id,
@@ -326,6 +344,7 @@ impl MusicManager {
                 &album_info
                     .album_artist
                     .unwrap_or_else(|| "Unknown Artist".to_string()),
+                image_id,
             )
             .map_err(|e| JellyfinError::GenericError(e.to_string()))
     }

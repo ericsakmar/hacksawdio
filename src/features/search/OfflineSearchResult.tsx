@@ -37,7 +37,7 @@ function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
         </button>
       )}
 
-      <div className="opacity-70">{item.albumArtist}</div>
+      <div className="opacity-70 font-light">{item.albumArtist}</div>
     </div>
   );
 }

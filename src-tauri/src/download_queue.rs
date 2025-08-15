@@ -103,6 +103,23 @@ fn handle_message(
                             &local_album.title,
                         )?;
 
+                        let image_path = local_album
+                            .image_id
+                            .as_ref()
+                            .map(|_| dir.join("cover.jpg").to_string_lossy().to_string());
+
+                        // get the album art if we have it
+                        if let Some(image_path) = &image_path {
+                            music_manager
+                                .download_album_art(
+                                    &local_album.jellyfin_id,
+                                    &local_album.image_id.as_ref().unwrap(),
+                                    &image_path,
+                                    &token,
+                                )
+                                .await?;
+                        }
+
                         // get the tracks for the album
                         let tracks = music_manager.get_tracks(&album.album_id, &token).await?;
                         let total_tracks = tracks.items.len();
@@ -131,7 +148,11 @@ fn handle_message(
                         // mark album as downloaded
                         music_manager
                             .repository
-                            .mark_album_as_downloaded(&album.album_id, &dir.to_string_lossy())
+                            .mark_album_as_downloaded(
+                                &album.album_id,
+                                &dir.to_string_lossy(),
+                                image_path.as_deref(),
+                            )
                             .map_err(|e| JellyfinError::GenericError(e.to_string()))
                     }
                     .await;

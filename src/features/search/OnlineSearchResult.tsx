@@ -37,7 +37,7 @@ function OnlineSearchResult({ item, handleDelete, handleDownload }: Props) {
         </ActionButton>
       )}
       <div>{item.name}</div>
-      <div className="opacity-70">{item.albumArtist}</div>
+      <div className="opacity-70 font-light">{item.albumArtist}</div>
     </div>
   );
 }

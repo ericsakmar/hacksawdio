@@ -144,7 +144,7 @@ function SearchPage() {
       ) : null}
 
       {album ? (
-        <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 px-4 py-2">
+        <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 px-4 py-4">
           <MiniPlayer />
         </div>
       ) : null}

@@ -11,6 +11,8 @@ pub struct Album {
     pub title: String,
     pub artist: String,
     pub path: Option<String>,
+    pub image_id: Option<String>,
+    pub image_path: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -21,6 +23,7 @@ pub struct NewAlbum<'a> {
     pub jellyfin_id: &'a str,
     pub title: &'a str,
     pub artist: &'a str,
+    pub image_id: Option<&'a str>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }

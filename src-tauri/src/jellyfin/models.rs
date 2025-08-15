@@ -45,6 +45,13 @@ pub struct JellyfinItem {
     pub album_artist: Option<String>,
     pub container: Option<String>,
     pub index_number: Option<u32>,
+    pub image_tags: Option<JellyfinImageTags>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "PascalCase"))]
+pub struct JellyfinImageTags {
+    pub primary: Option<String>,
 }
 
 impl PartialEq for JellyfinItem {
@@ -84,6 +91,7 @@ pub struct AlbumInfoResponse {
     pub name: String,
     pub artist: String,
     pub tracks: Vec<AlbumTrackResponse>,
+    pub image_url: Option<String>,
 }
 
 #[derive(Serialize)]

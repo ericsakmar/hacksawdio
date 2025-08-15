@@ -2,6 +2,7 @@
 
 @theme {
   --font-accent: "silkscreen", monospace;
+  --font-mono: "Roboto Mono", monospace;
 }
 
 body {
