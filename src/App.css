@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* roboto mono */
+@font-face {
+  font-family: "Roboto Mono";
+  src: url("./assets/RobotoMono-VariableFont_wght.ttf") format("truetype");
+}
+
+/* silkscreen */
+@font-face {
+  font-family: "silkscreen";
+  src: url("./assets/Silkscreen-Regular.ttf") format("truetype");
+}
+
 @theme {
   --font-accent: "silkscreen", monospace;
   --font-mono: "Roboto Mono", monospace;
