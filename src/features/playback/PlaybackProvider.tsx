@@ -30,12 +30,27 @@ const PlaybackContext = createContext<PlaybackContextType | undefined>(
   undefined
 );
 
-function setMediaSessionMedadata(title: string, artist: string, album: string) {
+function setMediaSessionMedadata(
+  title: string,
+  artist: string,
+  album: string,
+  albumArtUrl?: string
+) {
   if ("mediaSession" in navigator) {
+    const albumArt = albumArtUrl ? convertFileSrc(albumArtUrl) : null;
+
     navigator.mediaSession.metadata = new MediaMetadata({
       title,
       artist,
       album,
+      artwork: albumArt
+        ? [
+            {
+              src: albumArt,
+              sizes: "300x300",
+            },
+          ]
+        : [],
     });
   }
 }
@@ -184,7 +199,12 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
       return;
     }
 
-    setMediaSessionMedadata(track.name, album.artist, album.name);
+    setMediaSessionMedadata(
+      track.name,
+      album.artist,
+      album.name,
+      album.imageUrl
+    );
   }, [track, album]);
 
   useEffect(() => {
