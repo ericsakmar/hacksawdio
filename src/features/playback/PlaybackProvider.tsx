@@ -143,18 +143,29 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
     };
   }, [track]);
 
-  const togglePlayPause = () => {
+  const handlePlay = () => {
     const audio = audioRef.current;
     if (!audio) {
       return;
     }
+    audio.play();
+    setAutoPlay(true);
+  };
 
+  const handlePause = () => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    setAutoPlay(false);
+  };
+
+  const togglePlayPause = () => {
     if (isPlaying) {
-      audio.pause();
-      setAutoPlay(false);
+      handlePause();
     } else {
-      audio.play();
-      setAutoPlay(true);
+      handlePlay();
     }
   };
 
@@ -209,15 +220,15 @@ export const PlaybackProvider = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     if ("mediaSession" in navigator) {
-      navigator.mediaSession.setActionHandler("play", togglePlayPause);
-      navigator.mediaSession.setActionHandler("pause", togglePlayPause);
+      navigator.mediaSession.setActionHandler("play", handlePlay);
+      navigator.mediaSession.setActionHandler("pause", handlePause);
       navigator.mediaSession.setActionHandler("nexttrack", handleNextTrack);
       navigator.mediaSession.setActionHandler(
         "previoustrack",
         handlePreviousTrack
       );
     }
-  }, [togglePlayPause, handleNextTrack, handlePreviousTrack]);
+  }, [handlePlay, handlePause, handleNextTrack, handlePreviousTrack]);
 
   return (
     <PlaybackContext.Provider
