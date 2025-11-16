@@ -19,16 +19,19 @@ function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
   return (
     <div className="group grid grid-cols-[auto_1fr_auto] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2 hover:bg-zinc-900">
       <button
-        className="w-16 h-16 cursor-pointer flex items-center justify-center rounded "
+        className="relative w-16 h-16 cursor-pointer flex items-center justify-center rounded"
         onClick={() => handlePlay(item.id)}
         aria-label={isDownloading ? "Album is downloading" : "Play album"}
-        style={{
-          backgroundImage: albumArt ? `url(${albumArt})` : "none",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
       >
-        <PlayIcon className="w-8 h-8" />
+        <div
+          className="absolute inset-0 rounded group-hover:brightness-50 transition-all duration-200"
+          style={{
+            backgroundImage: albumArt ? `url(${albumArt})` : "none",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <PlayIcon className="relative w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </button>
 
       <div>
