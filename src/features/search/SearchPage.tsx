@@ -104,25 +104,31 @@ function SearchPage() {
 
       {results ? (
         <div className="mb-4">
-          <ul ref={resultsRef} className="">
-            {results.items.map((item) => (
-              <li key={item.id} data-album-id={item.id}>
-                {isOnline ? (
+          {isOnline ? (
+            <ul ref={resultsRef} className="">
+              {results.items.map((item) => (
+                <li key={item.id} data-album-id={item.id}>
                   <OnlineSearchResult
                     item={item}
                     handleDelete={handleDelete}
                     handleDownload={handleDownload}
                   />
-                ) : (
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ul ref={resultsRef} className="">
+              {results.items.map((item) => (
+                <li key={item.id} data-album-id={item.id}>
                   <OfflineSearchResult
                     item={item}
                     handleDelete={handleDelete}
                     handlePlay={handlePlay}
                   />
-                )}
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="flex justify-between mt-4">
             <button

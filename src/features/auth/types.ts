@@ -13,4 +13,5 @@ export interface AlbumSearchResponseItem {
   name: string;
   albumArtist?: string;
   downloaded: boolean;
+  imageUrl?: string;
 }

@@ -6,6 +6,7 @@ interface Props {
   onClick: () => void;
   ariaLabel?: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 function ActionButton({
@@ -14,6 +15,7 @@ function ActionButton({
   children,
   ariaLabel,
   className,
+  style,
 }: PropsWithChildren<Props>) {
   const handleClick = () => {
     if (!isLoading) {
@@ -24,6 +26,7 @@ function ActionButton({
   return (
     <button
       className={className}
+      style={style}
       onClick={handleClick}
       aria-label={ariaLabel}
       aria-disabled={isLoading}

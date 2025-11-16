@@ -113,6 +113,7 @@ impl MusicManager {
                 id: album.jellyfin_id.clone(),
                 album_artist: album.artist,
                 downloaded: album.path.is_some(),
+                image_url: album.image_path,
             })
             .collect::<Vec<_>>();
 
@@ -242,6 +243,7 @@ impl MusicManager {
                     .album_artist
                     .unwrap_or_else(|| "Unknown Artist".to_string()),
                 downloaded: downloaded_albums.contains(&item.id),
+                image_url: None, // not currently showing art for online results
             })
             .collect::<Vec<_>>();
 
@@ -424,6 +426,7 @@ impl MusicManager {
                 id: album.jellyfin_id.clone(),
                 album_artist: album.artist,
                 downloaded: album.path.is_some(),
+                image_url: album.image_path,
             })
             .collect::<Vec<_>>();
 

@@ -83,6 +83,7 @@ pub struct AlbumSearchResponseItem {
     pub id: String,
     pub album_artist: String,
     pub downloaded: bool,
+    pub image_url: Option<String>,
 }
 
 #[derive(Serialize)]

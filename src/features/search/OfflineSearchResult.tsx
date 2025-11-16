@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { AlbumSearchResponseItem } from "../auth/types";
 import ActionButton from "../components/ActionButton";
 import DeleteIcon from "../components/DeleteIcon";
@@ -13,19 +14,27 @@ interface Props {
 function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
   const { isAlbumDownloading } = useDownloadStatus();
   const isDownloading = isAlbumDownloading(item.id);
+  const albumArt = item.imageUrl ? convertFileSrc(item.imageUrl) : null;
 
   return (
     <div className="group grid grid-cols-[auto_1fr_auto] gap-x-2 items-start focus-within:bg-zinc-900 rounded p-2 hover:bg-zinc-900">
-      <ActionButton
-        className="peer row-span-2 mt-1 opacity-70 focus:opacity-100 focus:outline-none focus:text-green-300 cursor-pointer"
+      <button
+        className="w-16 h-16 cursor-pointer flex items-center justify-center rounded "
         onClick={() => handlePlay(item.id)}
-        isLoading={isDownloading}
-        ariaLabel={isDownloading ? "Album is downloading" : "Play album"}
+        aria-label={isDownloading ? "Album is downloading" : "Play album"}
+        style={{
+          backgroundImage: albumArt ? `url(${albumArt})` : "none",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
       >
-        <PlayIcon className="w-4 h-4" />
-      </ActionButton>
+        <PlayIcon className="w-8 h-8" />
+      </button>
 
-      <div>{item.name}</div>
+      <div>
+        <div>{item.name}</div>
+        <div className="opacity-70 font-light">{item.albumArtist}</div>
+      </div>
 
       {isDownloading ? null : (
         <button
@@ -36,8 +45,6 @@ function OfflineSearchResult({ item, handleDelete, handlePlay }: Props) {
           <DeleteIcon />
         </button>
       )}
-
-      <div className="opacity-70 font-light">{item.albumArtist}</div>
     </div>
   );
 }
