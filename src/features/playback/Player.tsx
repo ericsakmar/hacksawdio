@@ -1,8 +1,9 @@
 import { useHotkeys } from "react-hotkeys-hook";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import SpeakerIcon from "../components/SpeakerIcon";
 import Controls from "./Controls";
 import { usePlayback } from "./PlaybackProvider";
 import Seeker from "./Seeker";
-import { convertFileSrc } from "@tauri-apps/api/core";
 
 function Player() {
   const { album, track, tracks, trackIndex, setTrackIndex, togglePlayPause } =
@@ -41,7 +42,7 @@ function Player() {
   return (
     <div>
       <div
-        className={`bg-zinc-900 rounded py-4 px-8 mb-8 border-zinc-600 border-dashed border-2 shadow-black shadow`}
+        className="relative mb-8 aspect-square w-full overflow-hidden rounded border-2 border-dashed border-zinc-600 bg-zinc-900 px-8 py-4 shadow-black shadow"
         style={{
           backgroundImage: albumArt
             ? `linear-gradient(rgba(24,24,27,0.90), rgba(24,24,27,0.95)), url(${albumArt})`
@@ -50,34 +51,51 @@ function Player() {
           backgroundPosition: "center",
         }}
       >
-        <h1 className="text-center">{album.name}</h1>
-        <h2 className="text-zinc-400 text-sm mb-4 text-center font-light">
-          {album.artist}
-        </h2>
+        <div className="flex h-full flex-col justify-center">
+          <h1 className="text-center">{album.name}</h1>
+          <h2 className="mb-4 text-center text-sm font-light text-zinc-400">
+            {album.artist}
+          </h2>
 
-        <Controls />
+          <Controls />
 
-        <h2 className="text-center text-lg mt-4">
-          {trackIndex! + 1}. {track.name}
-        </h2>
+          <h2 className="mt-4 text-center text-lg">
+            {trackIndex! + 1}. {track.name}
+          </h2>
 
-        <Seeker />
+          <Seeker />
+        </div>
       </div>
 
       <div>
-        {tracks.map((t, index) => (
-          <div
-            key={index}
-            className={`px-4 py-2 cursor-pointer flex gap-1 ${
-              index === trackIndex
-                ? "py-4 bg-zinc-900 rounded text-amber-300"
-                : ""
-            }`}
-            onClick={() => handleTrackSelect(index)}
-          >
-            <span className="">{index + 1}.</span> <span>{t.name}</span>
-          </div>
-        ))}
+        {tracks.map((t, index) => {
+          const isActive = index === trackIndex;
+
+          return (
+            <button
+              key={index}
+              type="button"
+              onClick={() => handleTrackSelect(index)}
+              className={`flex w-full cursor-pointer items-baseline gap-2 border-l-2 px-3 py-2.5 text-left ${
+                isActive
+                  ? "border-amber-300 bg-zinc-900 text-amber-300"
+                  : "border-transparent text-zinc-100"
+              } ${index > 0 ? "border-t border-t-zinc-700/50" : ""}`}
+            >
+              <span
+                className={`w-8 shrink-0 tabular-nums ${
+                  isActive ? "text-amber-300/80" : "text-zinc-500"
+                }`}
+              >
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">{t.name}</span>
+              {isActive ? (
+                <SpeakerIcon className="h-4 w-4 shrink-0 self-center opacity-70" />
+              ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
