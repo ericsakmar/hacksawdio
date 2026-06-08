@@ -191,17 +191,16 @@ impl MusicManager {
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let artist_results = self
             .jellyfin_client
-            .search_artists(search, access_token, user_id)
+            .search_album_artists(search, access_token, user_id)
             .await?;
 
-        let artist_ids: Vec<String> = artist_results
+        let album_artist_ids: Vec<String> = artist_results
             .items
             .iter()
             .map(|item| item.id.clone())
             .collect();
 
-        // exit early if no artist IDs are found
-        if artist_ids.is_empty() {
+        if album_artist_ids.is_empty() {
             return Ok(JellyfinItemsResponse {
                 total_record_count: 0,
                 start_index: 0,
@@ -211,7 +210,7 @@ impl MusicManager {
 
         let artist_album_results = self
             .jellyfin_client
-            .search_albums_by_artist(artist_ids, access_token, user_id)
+            .search_albums_by_album_artist(album_artist_ids, access_token, user_id)
             .await;
 
         artist_album_results

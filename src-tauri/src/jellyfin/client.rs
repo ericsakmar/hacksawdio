@@ -94,28 +94,64 @@ impl JellyfinClient {
         .await
     }
 
-    pub async fn search_artists(
+    pub async fn search_album_artists(
         &self,
         search: &str,
         access_token: &str,
         user_id: Option<&str>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
-        self.search_items(
-            Some(search),
-            "MusicArtist",
-            access_token,
-            None,
-            None,
-            None,
-            None,
-            user_id,
-        )
-        .await
+        let limit = 100;
+        let offset = 0;
+
+        let mut url = Url::parse(&self.base_url)
+            .map_err(|e| JellyfinError::GenericError(format!("Invalid base URL: {}", e)))?;
+
+        url.set_path("/Artists/AlbumArtists");
+
+        {
+            let mut query = url.query_pairs_mut();
+            query.append_pair("searchTerm", search);
+            query.append_pair("limit", &limit.to_string());
+            query.append_pair("startIndex", &offset.to_string());
+
+            if let Some(user_id) = user_id {
+                query.append_pair("userId", user_id);
+            }
+        }
+
+        let response = self
+            .http_client
+            .get(url.to_string())
+            .header(
+                "Authorization",
+                format!(
+                    "MediaBrowser Token=\"{}\", Client=\"{}\", Device=\"{}\", DeviceId=\"{}\", Version=\"{}\"",
+                    access_token, self.app_name, self.device_name, self.device_id, self.app_version
+                ),
+            )
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            Ok(response.json::<JellyfinItemsResponse>().await?)
+        } else {
+            let status = response.status();
+
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "No error message".to_string());
+
+            Err(JellyfinError::ApiError {
+                status,
+                message: error_text,
+            })
+        }
     }
 
-    pub async fn search_albums_by_artist(
+    pub async fn search_albums_by_album_artist(
         &self,
-        artist_ids: Vec<String>,
+        album_artist_ids: Vec<String>,
         access_token: &str,
         user_id: Option<&str>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
@@ -126,7 +162,7 @@ impl JellyfinClient {
             None,
             None,
             None,
-            Some(artist_ids),
+            Some(album_artist_ids),
             user_id,
         )
         .await
@@ -140,7 +176,7 @@ impl JellyfinClient {
         sort_by: Option<&str>,
         limit: Option<u32>,
         offset: Option<u32>,
-        artist_ids: Option<Vec<String>>,
+        album_artist_ids: Option<Vec<String>>,
         user_id: Option<&str>,
     ) -> Result<JellyfinItemsResponse, JellyfinError> {
         let limit = limit.unwrap_or(100);
@@ -166,10 +202,10 @@ impl JellyfinClient {
             url.query_pairs_mut().append_pair("searchTerm", search_term);
         }
 
-        if let Some(artist_ids) = artist_ids {
-            let artist_ids_str = artist_ids.join(",");
+        if let Some(album_artist_ids) = album_artist_ids {
+            let album_artist_ids_str = album_artist_ids.join(",");
             url.query_pairs_mut()
-                .append_pair("artistIds", &artist_ids_str);
+                .append_pair("albumArtistIds", &album_artist_ids_str);
         }
 
         if let Some(sort_by) = sort_by {
