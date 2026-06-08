@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { AlbumSearchResponseItem } from "../auth/types";
 import { useSearch } from "./useSearch";
 import { useSearchHotkeys } from "./useSearchHotkeys";
 import OnlineSearchResult from "./OnlineSearchResult";
@@ -8,6 +9,23 @@ import { usePlayback } from "../playback/PlaybackProvider";
 import { useNavigate } from "react-router";
 import MiniPlayer from "./MiniPlayer";
 import { useOnlineStatus } from "../OnlineStatusProvider";
+
+function groupAlbumsByArtist(items: AlbumSearchResponseItem[]) {
+  const groups: { artist: string; albums: AlbumSearchResponseItem[] }[] = [];
+
+  for (const item of items) {
+    const artist = item.albumArtist || "Unknown artist";
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup?.artist === artist) {
+      lastGroup.albums.push(item);
+    } else {
+      groups.push({ artist, albums: [item] });
+    }
+  }
+
+  return groups;
+}
 
 function SearchPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -24,9 +42,16 @@ function SearchPage() {
     search,
     setDownloaded,
     setSearch,
+    offlineView,
+    setOfflineView,
     summary,
     setFocusedAlbumId,
   } = useSearch(isOnline);
+
+  const showOfflineViewToggle = !isOnline && search === "";
+  const showGroupedByArtist =
+    showOfflineViewToggle && offlineView === "byArtist";
+  const showPagination = !showGroupedByArtist;
 
   useSearchHotkeys({
     executeSearch,
@@ -42,7 +67,7 @@ function SearchPage() {
   useEffect(() => {
     if (focusedAlbumId && resultsRef.current) {
       const liElement = resultsRef.current.querySelector(
-        `li[data-album-id='${focusedAlbumId}']`
+        `li[data-album-id='${focusedAlbumId}']`,
       );
 
       const buttonToFocus = liElement?.querySelector("button");
@@ -100,52 +125,87 @@ function SearchPage() {
         </button>
       </form>
 
+      {showOfflineViewToggle ? (
+        <div className="flex gap-4 mb-4 ml-2 text-sm text-zinc-400">
+          <button
+            type="button"
+            onClick={() => setOfflineView("recent")}
+            className={offlineView === "recent" ? "text-amber-300" : ""}
+          >
+            Recently added
+          </button>
+          <button
+            type="button"
+            onClick={() => setOfflineView("byArtist")}
+            className={offlineView === "byArtist" ? "text-amber-300" : ""}
+          >
+            By artist
+          </button>
+        </div>
+      ) : null}
+
       <p className="mb-4 ml-2 opacity-70">{summary}</p>
 
       {results ? (
         <div className="mb-4">
-          {isOnline ? (
-            <ul ref={resultsRef} className="">
-              {results.items.map((item) => (
-                <li key={item.id} data-album-id={item.id}>
-                  <OnlineSearchResult
-                    item={item}
-                    handleDelete={handleDelete}
-                    handleDownload={handleDownload}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <ul ref={resultsRef} className="">
-              {results.items.map((item) => (
-                <li key={item.id} data-album-id={item.id}>
-                  <OfflineSearchResult
-                    item={item}
-                    handleDelete={handleDelete}
-                    handlePlay={handlePlay}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul ref={resultsRef} className="">
+            {showGroupedByArtist
+              ? groupAlbumsByArtist(results.items).map((group) => (
+                  <li key={group.artist} className="mb-6">
+                    <h2 className="px-2 mb-3 text-sm font-medium text-amber-300">
+                      {group.artist}
+                    </h2>
+                    <ul className="grid grid-cols-2 items-start gap-3 px-2 sm:grid-cols-3">
+                      {group.albums.map((item) => (
+                        <li key={item.id} data-album-id={item.id}>
+                          <OfflineSearchResult
+                            item={item}
+                            handleDelete={handleDelete}
+                            handlePlay={handlePlay}
+                            variant="card"
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))
+              : results.items.map((item) => (
+                  <li key={item.id} data-album-id={item.id}>
+                    {isOnline ? (
+                      <OnlineSearchResult
+                        item={item}
+                        handleDelete={handleDelete}
+                        handleDownload={handleDownload}
+                      />
+                    ) : (
+                      <OfflineSearchResult
+                        item={item}
+                        handleDelete={handleDelete}
+                        handlePlay={handlePlay}
+                      />
+                    )}
+                  </li>
+                ))}
+          </ul>
 
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => executeSearch(Math.max(0, offset - limit))}
-              disabled={offset === 0}
-              className="disabled:hidden"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => executeSearch(offset + limit)}
-              disabled={results.items.length < limit}
-              className="disabled:hidden"
-            >
-              Next
-            </button>
-          </div>
+          {showPagination ? (
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={() => executeSearch(Math.max(0, offset - limit))}
+                disabled={offset === 0}
+                className="disabled:hidden"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => executeSearch(offset + limit)}
+                disabled={results.items.length < limit}
+                className="disabled:hidden"
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

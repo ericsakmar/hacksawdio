@@ -110,6 +110,7 @@ async fn search_albums(
     limit: Option<u32>,
     offset: Option<u32>,
     online: bool,
+    offline_view: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<AlbumSearchResponse, String> {
     let music_manager = &state.music_manager;
@@ -131,7 +132,7 @@ async fn search_albums(
     }
 
     music_manager
-        .search_albums_offline(&search, limit, offset)
+        .search_albums_offline(&search, limit, offset, offline_view.as_deref())
         .await
         .map_err(|e| e.to_string())
 }

@@ -96,8 +96,13 @@ impl MusicManager {
         search: &str,
         limit: Option<u32>,
         offset: Option<u32>,
+        offline_view: Option<&str>,
     ) -> Result<AlbumSearchResponse, JellyfinError> {
         if search.is_empty() {
+            if offline_view == Some("byArtist") {
+                return self.get_albums_by_artist_offline().await;
+            }
+
             return self.get_recents_offline(limit, offset).await;
         }
 
@@ -432,6 +437,32 @@ impl MusicManager {
         Ok(AlbumSearchResponse {
             total_record_count: items.len() as u32,
             start_index: offset.unwrap_or(0),
+            items,
+        })
+    }
+
+    async fn get_albums_by_artist_offline(&self) -> Result<AlbumSearchResponse, JellyfinError> {
+        let local_albums = self
+            .repository
+            .get_albums_by_artist_offline()
+            .map_err(|e| JellyfinError::GenericError(e.to_string()))?;
+
+        let items = local_albums
+            .into_iter()
+            .map(|album| AlbumSearchResponseItem {
+                name: album.title,
+                id: album.jellyfin_id.clone(),
+                album_artist: album.artist,
+                downloaded: album.path.is_some(),
+                image_url: album.image_path,
+            })
+            .collect::<Vec<_>>();
+
+        let total = items.len() as u32;
+
+        Ok(AlbumSearchResponse {
+            total_record_count: total,
+            start_index: 0,
             items,
         })
     }

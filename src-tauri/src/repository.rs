@@ -50,6 +50,16 @@ impl Repository {
             .map_err(RepositoryError::DbError)
     }
 
+    pub fn get_albums_by_artist_offline(&self) -> Result<Vec<Album>, RepositoryError> {
+        let mut conn = self.db_pool.get()?;
+        albums_dsl::albums
+            .order(albums_dsl::artist.asc())
+            .then_order_by(albums_dsl::title.asc())
+            .select(Album::as_select())
+            .load::<Album>(&mut conn)
+            .map_err(RepositoryError::DbError)
+    }
+
     pub fn search_albums_offline(
         &self,
         search: &str,

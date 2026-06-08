@@ -6,16 +6,19 @@ export type ResultsState = AlbumSearchResponse & {
   focusedAlbumId: string | null;
 };
 
+export type OfflineView = "recent" | "byArtist";
+
 const limit = 50;
 
 function getSummary(
   search: string,
   resultCount: number,
   limit: number,
-  offset: number
+  offset: number,
+  offlineView: OfflineView
 ) {
   if (search === "") {
-    return "Recently added";
+    return offlineView === "byArtist" ? "By artist" : "Recently added";
   }
 
   if (resultCount < limit) {
@@ -30,6 +33,7 @@ function getSummary(
 
 export function useSearch(isOnline: boolean) {
   const [search, setSearch] = useState("");
+  const [offlineView, setOfflineView] = useState<OfflineView>("recent");
   const [offset, setOffset] = useState(0);
   const [results, setResults] = useState<ResultsState | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -38,7 +42,7 @@ export function useSearch(isOnline: boolean) {
   // search again when changing between online and offline mode
   useEffect(() => {
     executeSearch(0);
-  }, [isOnline]);
+  }, [isOnline, offlineView]);
 
   const executeSearch = async (newOffset: number) => {
     setIsSearching(true);
@@ -48,9 +52,12 @@ export function useSearch(isOnline: boolean) {
       limit,
       offset: newOffset,
       online: isOnline,
+      offlineView: !isOnline && search === "" ? offlineView : null,
     });
 
-    setSummary(getSummary(search, res.totalRecordCount, limit, newOffset));
+    setSummary(
+      getSummary(search, res.totalRecordCount, limit, newOffset, offlineView)
+    );
     setResults({
       ...res,
       focusedAlbumId: res.items.length > 0 ? res.items[0].id : null,
@@ -103,6 +110,8 @@ export function useSearch(isOnline: boolean) {
   return {
     search,
     setSearch,
+    offlineView,
+    setOfflineView,
     results,
     isSearching,
     executeSearch,
