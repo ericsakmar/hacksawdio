@@ -48,7 +48,6 @@ function OfflineSearchResult({
 }: Props) {
   const { isAlbumDownloading } = useDownloadStatus();
   const isDownloading = isAlbumDownloading(item.id);
-  const albumArt = item.imageUrl ? convertFileSrc(item.imageUrl) : null;
 
   if (variant === "card") {
     return (

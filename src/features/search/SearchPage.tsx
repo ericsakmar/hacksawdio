@@ -126,21 +126,31 @@ function SearchPage() {
       </form>
 
       {showOfflineViewToggle ? (
-        <div className="flex gap-4 mb-4 ml-2 text-sm text-zinc-400">
-          <button
-            type="button"
-            onClick={() => setOfflineView("recent")}
-            className={offlineView === "recent" ? "text-amber-300" : ""}
-          >
-            Recently added
-          </button>
-          <button
-            type="button"
-            onClick={() => setOfflineView("byArtist")}
-            className={offlineView === "byArtist" ? "text-amber-300" : ""}
-          >
-            By artist
-          </button>
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex gap-1 rounded-full bg-zinc-900 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setOfflineView("recent")}
+              className={`rounded-full px-3 py-1 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-300/60 ${
+                offlineView === "recent"
+                  ? "bg-zinc-700 text-amber-300"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Recently added
+            </button>
+            <button
+              type="button"
+              onClick={() => setOfflineView("byArtist")}
+              className={`rounded-full px-3 py-1 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-300/60 ${
+                offlineView === "byArtist"
+                  ? "bg-zinc-700 text-amber-300"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              By artist
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -148,21 +158,25 @@ function SearchPage() {
 
       {results ? (
         <div className="mb-4">
-          <ul ref={resultsRef} className="">
+          <ul
+            key={showOfflineViewToggle ? offlineView : "search"}
+            ref={resultsRef}
+            className=""
+          >
             {showGroupedByArtist
               ? groupAlbumsByArtist(results.items).map((group) => (
                   <li key={group.artist} className="mb-6">
-                    <h2 className="px-2 mb-3 text-sm font-medium text-amber-300">
+                    <h2 className="px-2 mb-3 text-sm font-medium text-amber-300 opacity-60">
                       {group.artist}
                     </h2>
-                    <ul className="grid grid-cols-2 items-start gap-3 px-2 sm:grid-cols-3">
+                    <ul>
                       {group.albums.map((item) => (
                         <li key={item.id} data-album-id={item.id}>
                           <OfflineSearchResult
                             item={item}
                             handleDelete={handleDelete}
                             handlePlay={handlePlay}
-                            variant="card"
+                            showArtist={false}
                           />
                         </li>
                       ))}

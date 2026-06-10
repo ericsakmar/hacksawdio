@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlbumSearchResponse } from "../auth/types";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -38,13 +38,10 @@ export function useSearch(isOnline: boolean) {
   const [results, setResults] = useState<ResultsState | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [summary, setSummary] = useState("");
-
-  // search again when changing between online and offline mode
-  useEffect(() => {
-    executeSearch(0);
-  }, [isOnline, offlineView]);
+  const searchRequestIdRef = useRef(0);
 
   const executeSearch = async (newOffset: number) => {
+    const requestId = ++searchRequestIdRef.current;
     setIsSearching(true);
 
     const res = await invoke<AlbumSearchResponse>("search_albums", {
@@ -54,6 +51,10 @@ export function useSearch(isOnline: boolean) {
       online: isOnline,
       offlineView: !isOnline && search === "" ? offlineView : null,
     });
+
+    if (requestId !== searchRequestIdRef.current) {
+      return;
+    }
 
     setSummary(
       getSummary(search, res.totalRecordCount, limit, newOffset, offlineView)
@@ -65,6 +66,13 @@ export function useSearch(isOnline: boolean) {
     setOffset(newOffset);
     setIsSearching(false);
   };
+
+  // search again when changing between online and offline mode
+  useEffect(() => {
+    setResults(null);
+    setOffset(0);
+    void executeSearch(0);
+  }, [isOnline, offlineView]);
 
   const setDownloaded = (id: string, downloaded: boolean, remove: boolean) => {
     if (remove) {
